@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+option java_package = "protocols";
+option java_outer_classname = "Chess";
+
+enum PieceColor {
+    BLACK = 0;
+    WHITE = 1;
+}
+
+message Position {
+    int32 row = 1;
+    int32 col = 2;
+}
+
+enum PieceType {
+    NONE = 0;
+    PAWN = 1;
+    KNIGHT = 2;
+    BISHOP = 3;
+    ROOK = 5;
+    QUEEN = 10;
+    KING = 100;
+}
+
+message ProtoPiece {
+    PieceType type = 1;
+    PieceColor color = 2;
+    int32 row = 3;
+    int32 col = 4;
+}
+
+message Board {
+    repeated ProtoPiece pieces = 1;
+    PieceColor player_to_move = 2;
+    int32 turnCount = 3;
+    repeated Move valid_moves = 4;
+}
+
+message GetValidMoves {
+    Board board = 1;
+    ProtoPiece piece_to_move = 2;
+}
+message ValidMovesResponse {
+    repeated Position moves = 1;
+}
+
+message GetBestMove {
+    Board board = 1;
+    PieceColor player = 2;
+}
+
+message Move {
+    ProtoPiece piece_to_move = 1;
+    Position end_position = 2;
+}
+message BestMoveResponse {
+    Move best_move = 1;
+}
