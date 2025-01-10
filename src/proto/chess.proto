@@ -34,7 +34,12 @@ message Board {
     repeated ProtoPiece pieces = 1;
     PieceColor player_to_move = 2;
     int32 turnCount = 3;
-    repeated Move valid_moves = 4;
+    // repeated Move valid_moves = 4;
+
+    bool black_long_castle = 5;
+    bool black_castle = 6;
+    bool white_long_castle = 7;
+    bool white_castle = 8;
 }
 
 message GetValidMoves {
@@ -53,6 +58,7 @@ message GetBestMove {
 message Move {
     ProtoPiece piece_to_move = 1;
     Position end_position = 2;
+    Position secondary_end_pos = 3;
 }
 message BestMoveResponse {
     Move best_move = 1;

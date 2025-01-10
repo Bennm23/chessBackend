@@ -4,15 +4,11 @@ mod processing;
 use generated::common::{self,*};
 use generated::chess::{*};
 
-use once_cell::sync::Lazy;
-use processing::board_handles::Transpose;
 use processing::processor::{*};
 
 use protobuf::{Message, Enum, MessageField};
 use std::collections::HashMap;
-use std::hash::Hash;
-use std::sync::{Mutex, Arc};
-use std::{thread, time::Duration, net::{self, TcpStream, Shutdown}, io::{Write, Read}, sync::mpsc::{self, Receiver}, process::id};
+use std::{thread, net::{self, TcpStream}, io::{Write, Read}};
 
 fn main() {
     
@@ -31,12 +27,11 @@ fn server() {
                 s
             },
             Err(e) => {
-                println!("Got Error");
+                println!("Got Error {e}");
                 return;
             }
         };
         thread::spawn(move || read_from_socket(&mut sock));
-        
     }
 }
 
@@ -68,7 +63,7 @@ fn read_from_socket(socket : &mut TcpStream) {
             }
         };
 
-        let mut to_read = &mut res[0 .. read_size as usize];
+        let to_read = &mut res[0 .. read_size as usize];
         // println!("MSG ID = {:#?}", msg_id);
 
         match socket.read_exact(to_read) {
@@ -86,43 +81,32 @@ fn read_from_socket(socket : &mut TcpStream) {
  }
  fn send(stream : &mut TcpStream, bytes : &[u8]) {
     let _res = stream.write(bytes).expect("Stream Write Failed");
-    // println!("WROTE {res} BYTES");
-    }
+}
  fn send_failed_ack(stream : &mut TcpStream) {
     let res = i32::to_be_bytes(-1);
     send(stream, &res);
-    }
+}
  fn send_success_ack(stream : &mut TcpStream) {
     let res = i32::to_be_bytes(1);
     send(stream, &res);
-    }
+}
 
-static SEARCH_DEPTH : i8 = 4;
-static NUM_THREADS : i8 = 4;
+pub static SEARCH_DEPTH : i8 = 5;
+const NUM_THREADS : usize = 8;
 
  fn handle_message(id : &MessageID, bytes : &[u8], socket : &mut TcpStream) {
     match id {
         MessageID::GET_BEST_MOVE => {
 
             let mut cl = socket.try_clone().unwrap();
-            let mut request_msg = GetBestMove::parse_from_bytes(bytes).expect(
+            let request_msg = GetBestMove::parse_from_bytes(bytes).expect(
                 "Could not parse GetBestMove message"
             );
 
             thread::spawn(move || {
                 let board = request_msg.board.unwrap();
-                // let res = board.get_best_move(&request_msg.player.unwrap());
-                // let res = board.get_best_move_prune(&request_msg.player.unwrap());
-                let mut board_map: HashMap<Board, Transpose> = HashMap::new();
-                // let alp = Arc::new(Mutex::new(f32::MIN));
-                // let beta = Arc::new(Mutex::new(f32::MAX));
-                // let (_score, res) = board.apb(SEARCH_DEPTH, alp, beta,
-                    //  &request_msg.player.unwrap(), true);
-                let (_score, res) = board.alpha_beta(SEARCH_DEPTH, f32::MIN, f32::MAX,
-                     &request_msg.player.unwrap(), &mut board_map);
-                // let wrap : Arc<Mutex<&mut HashMap<i64, Transpose>>> = Arc::new(Mutex::new(&mut board_map));
-                // let (_score, res) = board.alpha_beta_parallel(SEARCH_DEPTH, f32::MIN, f32::MAX,
-                    //  &request_msg.player.unwrap(), &wrap);
+                
+                let res = board.find_best_move_chunks(SEARCH_DEPTH, &request_msg.player.unwrap());
 
                 let mut response = BestMoveResponse::new();
                 response.best_move = MessageField::some(res.unwrap());
@@ -133,8 +117,6 @@ static NUM_THREADS : i8 = 4;
 
         },
         MessageID::GET_VALID_MOVES => {
-            // println!("GOT GET VALID MOVES");
-            // let mut size : [u8; 4] = [0; 4];
             let mut cl = socket.try_clone().unwrap();
             let request_msg = GetValidMoves::parse_from_bytes(bytes).expect(
                 "Could not parse Get Valid Moves Msg from bytes"
@@ -155,7 +137,6 @@ static NUM_THREADS : i8 = 4;
                 send_proto_msg(&mut cl, &response);
 
                 });
-
         }
         _ => {
             println!("Got Unhandled MSG ID");

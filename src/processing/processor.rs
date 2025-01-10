@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use crate::generated::chess::{*};
 
 pub fn get_valid_moves(request : &GetValidMoves) -> Option<Vec<Position>> {
@@ -13,7 +11,16 @@ pub fn get_valid_moves(request : &GetValidMoves) -> Option<Vec<Position>> {
     };
 
     let piece = request.piece_to_move.clone().unwrap();
-    Some(piece.get_valid_moves(&board))
+
+    Some(
+        piece
+            .get_valid_moves(board)
+            .iter()
+            .map(
+                |p| {p.primary_move().clone()}
+            )
+            .collect()
+    )
 }
 
 

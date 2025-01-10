@@ -1,16 +1,16 @@
 
-use core::{num,};
-use std::{collections::HashMap, hash::Hasher, hash::Hash, sync::{Arc, Mutex}, clone};
+use std::{cmp::Ordering, collections::HashMap, hash::{Hash, Hasher}, sync::{Arc, Mutex}, time::Instant};
 
-use protobuf::{MessageField, Enum, EnumOrUnknown, Message, SpecialFields, UnknownFields, rt::CachedSize};
-use rand::{seq::SliceRandom, Rng};
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator, IntoParallelIterator};
+use protobuf::{MessageField, Enum, EnumOrUnknown};
+use rand::Rng;
+use rayon::{iter::ParallelIterator, slice::ParallelSlice};
 
-use crate::{generated::chess::{*}, SEARCH_DEPTH };
+use crate::{generated::chess::*, NUM_THREADS} ;
+
 #[derive(PartialEq)]
 pub enum ReturnState {
     TRUE,
-    TRUE_EXIT,
+    TrueExit,
     FALSE
     
 }
@@ -20,6 +20,21 @@ pub struct Transpose {
     value : f32,
     // best_move : Move,
 }
+
+#[derive(Copy,Clone)]
+enum NodeType {
+    Exact,
+    Lower,
+    Upper,
+}
+#[derive(Copy,Clone)]
+struct TranspositionEntry {
+    eval : f32,
+    depth: i8,
+    node_type: NodeType,
+}
+type TranspositionTable = HashMap<u64, TranspositionEntry>;
+
 impl Eq for Board {}
 
 impl Hash for Board {
@@ -29,10 +44,6 @@ impl Hash for Board {
     }
 }
 
-    pub fn minus(val : Arc<Mutex<f32>>) {
-        let mut v = **val.lock().as_mut().unwrap();
-        v = -v;
-    }
 impl Board {
     pub fn get_piece(&self, row : i32, col : i32) -> Option<&ProtoPiece> {
         let index:usize = (row * 8 + col % 8) as usize;
@@ -75,140 +86,13 @@ impl Board {
         if  self.square_empty_grid(col, row) {
             ReturnState::TRUE
         } else if piece.can_capture_grid(col, row, self) {
-            ReturnState::TRUE_EXIT
+            ReturnState::TrueExit
         } else {
            return ReturnState::FALSE; 
         }
     }
     pub fn validate_position(&self, position : &Position, piece : &ProtoPiece) -> ReturnState {
         self.validate_grid_position(position.col, position.row, piece)
-    }
-
-    //Alpha beta pruning.
-    //Alpha - the best value that the maximizer can guarantee at that level or above
-    //Beta - the best value that the minimizer can guarentee at that level or above
-
-
-    // pub fn apb(self, depth : i8, alpha : Arc<Mutex<f32>>, beta : Arc<Mutex<f32>> , color : &PieceColor,
-    //                 maxing : bool) -> (f32,Option<Move>) {
-    //     let all_moves : Vec<Move> = self.get_all_moves_for_color(color);
-    //     if depth == 0 {
-    //         return (self.evaluate(color, all_moves.as_slice()), None);
-    //     }
-    //     // let mut max_score : f32 = f32::MIN;
-    //     // let mut best_move: Option<Move> = None;
-    //     let max_score : Arc<Mutex<f32>> = Arc::new(Mutex::new(f32::MIN));
-    //     let best_move : Arc<Mutex<Option<Move>>> = Arc::new(Mutex::new(None));
-
-    //     let stream = all_moves.into_par_iter()
-    //             .map(|mv| {
-
-    //                 let new_board = self.make_move(&mv);
-                    
-    //                 let (res, _) = new_board.apb(depth -1, alpha , beta, &color.opposite(), !maxing);
-
-    //                 if maxing {
-    //                     let mut max_clone = 0.0;
-    //                     {
-    //                         let mut new_max = max_score.lock().as_mut().unwrap();
-    //                         if **new_max < -res {
-    //                             **new_max = -res;
-    //                             let mut bm = best_move.lock().as_mut().unwrap();
-    //                             **bm = Some(mv);
-
-    //                         }
-    //                             max_clone = new_max.clone();
-    //                     }
-    //                     {
-    //                         let mut new_alpha = alpha.lock().as_mut().unwrap();
-    //                         **new_alpha = new_alpha.max(max_clone);
-    //                         if **beta.lock().as_ref().unwrap() <= **new_alpha {
-    //                             return;
-    //                         }
-    //                     }
-    //                 } else {
-    //                     let mut max_clone = 0.0;
-    //                     {
-    //                         let mut new_max = max_score.lock().as_mut().unwrap();
-    //                         if **new_max < -res {
-    //                             **new_max = -res;
-    //                             let mut bm = best_move.lock().as_mut().unwrap();
-    //                             **bm = Some(mv);
-
-    //                         }
-    //                             max_clone = new_max.clone();
-    //                     }
-    //                     {
-    //                         let mut new_beta = beta.lock().as_mut().unwrap();
-    //                         **new_beta = new_beta.max(max_clone);
-    //                         if **alpha.lock().as_ref().unwrap() >= **new_beta {
-    //                             return;
-    //                         }
-    //                     }
-
-    //                 }
-
-
-    //             });
-        
-
-    //     return (0.0, None)
-    // }
-
-    pub fn alpha_beta(self, depth : i8,
-                      mut alpha : f32, beta : f32, color : &PieceColor,
-                      board_map : &mut HashMap<Board, Transpose>
-                ) -> (f32, Option<Move>) {
-
-        let transpose = board_map.get(&self);
-        if let Some(transpose) = transpose {
-            if transpose.depth >= depth {
-                return (transpose.value, None);
-            }
-        }
-
-        //All available moves at this depth
-        let all_moves:Vec<Move> = self.get_all_moves_for_color(color);
-        //If at lowest level of evaluation, just evaluate board
-        if depth == 0 {
-            return (self.evaluate(color, all_moves.as_slice()), None);
-        }
-
-        let mut max_score : f32 = f32::MIN;
-        let mut best_move: Option<Move> = None;
-        
-        for mv in all_moves {
-            //Make the move
-            let new_board = self.make_move(&mv);
-            let (res,_) = new_board.alpha_beta(depth - 1, -beta, -alpha, &color.opposite(), board_map);
-
-            //res will return the best score for the opposite player
-            //if max_score is less than the opposite of the best move for the other player,
-            //we found a better move
-            if max_score < -res {
-                max_score = -res;
-                best_move = Some(mv);
-            }
-            alpha = alpha.max(max_score);
-            //alpha is the best score found for this player so far
-            //If the worst result for us is less than the best result we've found, break because the opponent will choose the other
-            if beta <= alpha {
-                break;
-            }
-        }
-
-        let entry = Transpose {
-            depth,
-            value: max_score,
-            // best_move : best_move
-        };
-        board_map.insert(self, entry);
-
-        if depth == SEARCH_DEPTH {
-            (max_score, best_move)
-        } else {
-            (max_score, None)
-        }
     }
 
     fn fake_hash(&self) -> i64 {
@@ -219,119 +103,22 @@ impl Board {
 
         total
     }
-
-    // pub fn alpha_beta_parallel(
-    //                   &self, depth : i8,
-    //                   mut alpha : f32, beta : f32, color : &PieceColor,
-    //                 //   board_map : &mut HashMap<Board, Transpose>, num_threads : usize
-    //                   board_map : &Arc<Mutex<&mut HashMap<i64, Transpose>>>
-    //             ) -> (f32, Option<Move>) {
-
-    //     let binding = board_map.lock().unwrap();
-    //     let transpose = binding.get(&self.clone().fake_hash());
-    //     if let Some(transpose) = transpose {
-    //         if transpose.depth >= depth {
-    //             return (transpose.value, None);
-    //         }
-    //     }
-
-    //     //All available moves at this depth
-    //     let all_moves:Vec<Move> = self.get_all_moves_for_color(color);
-    //     //If at lowest level of evaluation, just evaluate board
-    //     if depth == 0 {
-    //         return (self.evaluate(color, all_moves.as_slice()), None);
-    //     }
-
-    //     // let chunks = all_moves.chunks(all_moves.len() / num_threads + 1);
-
-    //     let best_move : Arc<Mutex<Option<Move>>> = Arc::new(Mutex::new(None));
-    //     let max_score : Arc<Mutex<f32>> = Arc::new(Mutex::new(f32::MIN));
-    //     let alpha_arc : Arc<Mutex<f32>> = Arc::new(Mutex::new(alpha));
-    //     let beta_arc  : Arc<Mutex<f32>> = Arc::new(Mutex::new(beta));
-    //     // let trans_table = Arc::new(Mutex::new(board_map));
-        
-    //     all_moves.par_iter().for_each(|mv| {
-    //         let new_board = self.make_move(mv);
-    //         let (res, _) = new_board.alpha_beta_parallel(depth - 1, -beta, -alpha, &color.opposite(), &board_map);
-
-    //         let mut max= max_score.lock().unwrap();
-    //         let mut best= best_move.lock().unwrap();
-    //         let mut alpha = alpha_arc.lock().unwrap();
-    //         let mut be = beta_arc.lock().unwrap();
-    //         if *max < -res {
-    //             *max = -res;
-    //             *best= Some(mv.clone());
-    //         }
-    //         *alpha= alpha.max(*max_score);
-    //         //alpha is the best score found for this player so far
-    //         //If the worst result for us is less than the best result we've found, break because the opponent will choose the other
-    //         if *beta <= *alpha {
-    //             return;
-    //         }
-    //     });
-
-    //     let entry = Transpose {
-    //         depth,
-    //         value: *max_score.lock().unwrap(),
-    //         // best_move : best_move
-    //     };
-    //     board_map.lock().unwrap().insert(self.fake_hash(), entry);
-
-    //     if depth == SEARCH_DEPTH {
-    //         (*max_score.lock().unwrap(), best_move.lock().unwrap().clone())
-    //     } else {
-    //         (*max_score.lock().unwrap(), None)
-    //     }
-    // }
-
-    pub fn get_best_move(&mut self, color : &PieceColor) -> Move {
-        let all_moves:Vec<Move> = self.get_all_moves_for_color(color);
-
-        let mut best_move = Move::default();
-        let mut max = f32::MIN;
-        for mv in all_moves {
-            let new_board = self.make_move(&mv);
-            // let score = new_board.evaluate(color);
-            let score = -1.0 * new_board.get_best_move_response(&PieceColor::from_i32((color.value() + 1) % 2).unwrap(),1);
-            if score > max {
-                max = score;
-                // println!("MAX = {max}");
-                // println!("MOVE = {:#?}", mv);
-                best_move = mv;
-            }
-        }
-        best_move.clone()
-        // all_moves.choose(&mut rand::thread_rng()).unwrap().choose(&mut rand::thread_rng()).unwrap().clone()
-    }
-    fn get_best_move_response(&self, color : &PieceColor, depth : i8) -> f32 {
-        let all_moves:Vec<Move> = self.get_all_moves_for_color(color);
-
-        let mut max = f32::MIN;
-        for mv in &all_moves {
-            let new_board = self.make_move(&mv);
-            let mut score = 0.0;
-            if depth == 1 {
-                score = -1.0 * new_board.get_best_move_response(&PieceColor::from_i32((color.value() + 1) % 2).unwrap(),2);
-            } else {
-                score = new_board.evaluate(color, all_moves.as_slice());
-            }
-            if score > max {
-                max = score;
-                // println!("MAX = {max}");
-            }
-        }
-        max
-    }
-
-    fn get_all_moves_for_color(&self, color : &PieceColor) -> Vec<Move> {
+    fn get_all_moves_for_current(&self) -> Vec<Move> {
         let mut all_moves : Vec<Move> = Vec::new();
 
+        let color = self.player_to_move.unwrap();
+
         for piece in &self.pieces {
-            if !piece.color.unwrap().eq(color) { continue; }
+            if !piece.color.unwrap().eq(&color) { continue; }
             let mut this_move : Move = Move::default();
             this_move.set_piece(piece.clone());
-            for end_pos in piece.get_valid_moves(&self){
-                this_move.set_move(end_pos.clone());
+            for move_pos in piece.get_valid_moves(&self){
+                this_move.set_move(move_pos.primary_move().clone());
+                if let Some(secondary) = move_pos.secondary_move() {
+
+                    this_move.set_secondary_move(secondary.clone());
+                    
+                }
                 all_moves.insert(0, this_move.clone());
             }
         }
@@ -339,31 +126,90 @@ impl Board {
         all_moves
     }
 
-    fn make_move(&self, mv : &Move) -> Board {
+    pub fn make_move(&self, mv : &Move) -> Board {
         let mut new = self.clone();
         let curr_piece = mv.piece_to_move.as_ref().unwrap();
 
+        if new.player_to_move.unwrap() == PieceColor::WHITE {
+            new.player_to_move = EnumOrUnknown::new(PieceColor::BLACK);
+        } else {
+            new.player_to_move = EnumOrUnknown::new(PieceColor::WHITE);
+        }
+
+        let black_king = self.get_piece(0, 4);
+        if black_king.is_some() && black_king.unwrap().is_piece(PieceColor::BLACK, PieceType::KING) {
+            if new.black_long_castle {
+                if let Some(long_rook) = self.get_piece(0, 0) {
+                    new.black_castle = long_rook.is_piece(PieceColor::BLACK, PieceType::ROOK);
+                }
+            }
+            if new.black_castle {
+                if let Some(short_rook) = self.get_piece(0, 7) {
+                    new.black_castle = short_rook.is_piece(PieceColor::BLACK, PieceType::ROOK);
+                }
+            }
+        } else {
+            new.black_castle = false;
+            new.black_long_castle = false;
+        }
+        let white_king = self.get_piece(7, 4);
+        if white_king.is_some() && white_king.unwrap().is_piece(PieceColor::WHITE, PieceType::KING) {
+            if new.white_long_castle {
+                if let Some(long_rook) = self.get_piece(7, 0) {
+                    new.white_castle = long_rook.is_piece(PieceColor::WHITE, PieceType::ROOK);
+                }
+            }
+            if new.white_castle {
+                if let Some(short_rook) = self.get_piece(7, 7) {
+                    new.white_castle = short_rook.is_piece(PieceColor::WHITE, PieceType::ROOK);
+                }
+            }
+        } else {
+            new.white_castle = false;
+            new.white_long_castle = false;
+        }
+
         let old_index = (&curr_piece.row * 8 + &curr_piece.col % 8) as usize;
         let new_index = (&mv.end_position.row * 8 + &mv.end_position.col % 8) as usize;
-        // println!("OLD INDEX VAL = {old_index}");
-        // println!("NEW INDEX VAL = {new_index}");
         //Update destination with old position values 
         new.pieces[old_index].col = mv.end_position.col;
         new.pieces[old_index].row = mv.end_position.row;
-
-        // println!("OLD INDEX = {:#?}",new.pieces[old_index]);
         //Update the new piece with old position values
         new.pieces[new_index].col = curr_piece.col;
         new.pieces[new_index].row = curr_piece.row;
         new.pieces[new_index].type_ = EnumOrUnknown::from_i32(0);
-        // println!("NEW INDEX = {:#?}",new.pieces[new_index]);
         //Move old to new pos
         new.pieces.swap(old_index, new_index);
 
         new
     }
 
-    fn evaluate(&self, color : &PieceColor, all_moves : &[Move]) -> f32 {
+    // pub fn evaluate(&self, color : &PieceColor, all_moves : &[Move]) -> f32 {
+    //     let mut white_score = 0.0;
+    //     let mut black_score = 0.0;
+    //     for piece in &self.pieces {
+    //         if piece.type_.unwrap() == PieceType::NONE {
+    //             continue;
+    //         }
+    //         if piece.color.unwrap() == PieceColor::WHITE {
+    //             white_score += piece.get_score(self);
+    //             // white_score += piece.get_score(self, all_moves);
+    //         } else {
+    //             black_score += piece.get_score(self);
+    //             // black_score += piece.get_score(self, all_moves.as_slice());
+    //         }
+    //     }
+    //     if color == &PieceColor::WHITE {
+    //         white_score - black_score
+    //     } else {
+    //         black_score - white_score
+    //     }
+    // }
+
+
+    // NEW BLOCK
+
+    pub fn raw_score(&self) -> f32 {
         let mut white_score = 0.0;
         let mut black_score = 0.0;
         for piece in &self.pieces {
@@ -371,27 +217,245 @@ impl Board {
                 continue;
             }
             if piece.color.unwrap() == PieceColor::WHITE {
-                white_score += piece.get_score(self, all_moves);
+                white_score += piece.get_score(self);
                 // white_score += piece.get_score(self, all_moves);
             } else {
-                black_score += piece.get_score(self, all_moves);
+                black_score += piece.get_score(self);
                 // black_score += piece.get_score(self, all_moves.as_slice());
             }
         }
-        if color == &PieceColor::WHITE {
-            white_score - black_score
-        } else {
-            black_score - white_score
+        white_score - black_score
+    }
+    
+    fn ab(
+        &self,
+        depth : i8,
+        mut alpha : f32, mut beta : f32,
+        maximizer : bool,
+        transpositions : &mut TranspositionTable,
+        zobrist: &ZobristHash,
+    ) -> f32 {
+
+        let board_hash = self.eval_hash(zobrist);
+        if let Some(entry) = transpositions.get(&board_hash) {
+
+            if entry.depth >= depth {
+                match entry.node_type {
+
+                    NodeType::Exact => return entry.eval,
+                    NodeType::Lower => alpha = alpha.max(entry.eval),
+                    NodeType::Upper => beta = beta.min(entry.eval),
+                }
+
+                if alpha >= beta {
+                    return entry.eval
+                }
+            }
         }
+
+        if depth == 0 {
+            let eval = self.raw_score();
+            // return self.raw_score()
+
+            transpositions.insert(
+                board_hash,
+                TranspositionEntry {eval, depth, node_type: NodeType::Exact}
+            );
+            return eval;
+
+            //TODO: Hashing, zobrist and transposition table. Ordering of moves at beggining? Handle when in check
+        }
+
+        let mut best_eval = if maximizer { f32::NEG_INFINITY } else { f32::INFINITY };
+        let mut node_type = NodeType::Exact;
+
+        let moves= self.get_all_moves_for_current();
+
+        for mv in &moves {
+            let new_board = self.make_move(mv);
+            let eval = new_board.ab(depth - 1, alpha, beta, !maximizer, transpositions, zobrist);
+
+            if maximizer {
+                best_eval = best_eval.max(eval);
+                alpha = alpha.max(eval);
+                if alpha >= beta {
+                    node_type = NodeType::Lower;
+                    break;
+                }
+            } else {
+                best_eval = best_eval.min(eval);
+                beta = beta.min(eval);
+                if beta <= alpha {
+                    node_type = NodeType::Upper;
+                    break;
+                }
+            }
+        }
+        transpositions.insert(
+            board_hash,
+            TranspositionEntry {eval: best_eval, depth, node_type}
+        );
+
+        best_eval
+    }
+
+    pub fn find_best_move(&self, depth : i8, player : &PieceColor) -> Option<Move> {
+        
+        let start = Instant::now();
+
+        let mut best_move: Option<Move> = None;
+        let mut best_score = f32::NEG_INFINITY;
+
+        let moves = self.get_all_moves_for_current();
+
+        let mut transpositions: TranspositionTable = HashMap::new();
+        let zobrist = ZobristHash::new();
+
+        for mv in &moves {
+            let new_board = self.make_move(mv);
+            let eval = new_board.ab(
+                depth - 1,
+                f32::NEG_INFINITY, f32::INFINITY,
+                false,
+                &mut transpositions,
+                &zobrist,
+            );
+            if eval > best_score {
+                best_score = eval;
+                best_move = Some(mv.clone());
+            }
+        }
+
+        let elapsed = start.elapsed();
+
+        println!("Find Took {} ms", elapsed.as_millis());
+
+        best_move
+    }
+
+    pub fn find_best_move_chunks(&self, depth : i8, player : &PieceColor) -> Option<Move> {
+        
+        let start = Instant::now();
+
+        let moves = self.get_all_moves_for_current();
+
+        let chunk_size = (moves.len() + NUM_THREADS - 1) / NUM_THREADS;
+
+        let bests: Vec<EvalPair> = moves.par_chunks(chunk_size)
+            .map(|chunk| {
+
+                let mut best_move: Option<Move> = None;
+                let mut best_score = f32::NEG_INFINITY;
+                let mut transpositions: TranspositionTable = HashMap::new();
+                let zobrist = ZobristHash::new();
+
+                for mv in chunk {
+                    let new_board = self.make_move(mv);
+
+                    let eval = new_board.ab(
+                        depth - 1,
+                        f32::NEG_INFINITY, f32::INFINITY,
+                        false,
+                        &mut transpositions,
+                        &zobrist,
+                    );
+                    if eval > best_score {
+                        best_score = eval;
+                        best_move = Some(mv.clone());
+                    }
+                }
+
+                EvalPair{0: best_move.unwrap(), 1: best_score}
+            })
+            .collect();
+
+        let best_move = bests.iter()
+            .max_by(|a, b| -> Ordering {
+                a.1.total_cmp(&b.1)
+            });
+
+        let elapsed = start.elapsed();
+        println!("Find Chunks Took {} ms", elapsed.as_millis());
+        Some(best_move.unwrap().0.clone())
+    }
+
+    fn eval_hash(&self, zobrist: &ZobristHash) -> u64 {
+        let mut hash = 0u64;
+
+        for (square, piece) in self.pieces.iter().enumerate() {
+            if piece.type_.unwrap() == PieceType::NONE {
+                continue;
+            }
+
+            hash ^= zobrist.random_table[piece.piece_index()][square];
+        }
+        if self.player_to_move.unwrap() == PieceColor::WHITE {
+            hash ^= zobrist.side_to_move;
+        }
+
+        if self.black_castle {
+            hash ^= zobrist.castling_rights[0];
+        }
+        if self.black_long_castle {
+            hash ^= zobrist.castling_rights[1];
+        }
+        if self.white_castle {
+            hash ^= zobrist.castling_rights[2];
+        }
+        if self.white_long_castle {
+            hash ^= zobrist.castling_rights[3];
+        }
+
+        hash
     }
 }
 
+const BOARD_SIZE: usize = 64;
+const NUM_PIECES: usize = 64;
+
+pub struct ZobristHash {
+    random_table: [[u64; BOARD_SIZE]; NUM_PIECES],
+    side_to_move: u64,
+    castling_rights: [u64; 4],
+}
+
+impl ZobristHash {
+    fn new() -> Self {
+
+        let mut rng = rand::thread_rng();
+        let mut random_table = [[0u64; BOARD_SIZE]; NUM_PIECES];
+        for piece in 0..NUM_PIECES {
+            for square in 0..BOARD_SIZE {
+                random_table[piece][square] = rng.gen();
+            }
+        }
+        let side_to_move = rng.gen();
+        let castling_rights = [rng.gen(), rng.gen(), rng.gen(), rng.gen()];
+
+        Self {
+            random_table,
+            side_to_move,
+            castling_rights,
+        }
+
+    }
+}
+
+#[derive(Clone)]
+struct EvalPair(Move, f32);
+
 impl Move {
     pub fn set_piece(&mut self, piece : ProtoPiece) {
-        self.piece_to_move = MessageField::some(piece.clone());
+        self.piece_to_move = MessageField::some(piece);
     }
     pub fn set_move(&mut self, pos : Position) {
-        self.end_position = MessageField::some(pos.clone());
+        self.end_position = MessageField::some(pos);
+    }
+    pub fn set_secondary_move(&mut self, pos : Position) {
+        self.secondary_end_pos = MessageField::some(pos);
+    }
+    pub fn get_type(&self) -> PieceType {
+        self.piece_to_move.type_.unwrap()
     }
 }
 
@@ -400,9 +464,3 @@ impl PieceColor {
         PieceColor::from_i32((self.value() + 1) % 2).unwrap()
     }
 }
-
-// impl Hash for PieceColor {
-//     fn hash<H: Hasher>(&self, state : &mut H) {
-//         self.value().hash(state);
-//     }
-// }
