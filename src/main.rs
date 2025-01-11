@@ -4,9 +4,11 @@ mod processing;
 use generated::chess::*;
 use generated::common::*;
 
-use processing::new_handles::fix_castle_rights;
-use processing::{new_handles, processor::*};
+use processing::board_evaluator::fix_castle_rights;
+use processing::piece_handles::convert_to_proto_piece;
+use processing::{board_evaluator, processor::*};
 
+use protobuf::EnumOrUnknown;
 use protobuf::{Enum, Message, MessageField};
 use std::str::FromStr;
 use std::{
@@ -125,7 +127,7 @@ fn handle_message(id: &MessageID, bytes: &[u8], socket: &mut TcpStream) {
                 let board = fix_castle_rights(&orig_board, request_msg.fen_string);
 
                 println!("Start Board =\n{:?}", board);
-                let res = new_handles::find_best_move_chunks(board, SEARCH_DEPTH);
+                let res = board_evaluator::find_best_move_iterable(board, 11);
 
                 println!("Best Move = {}", res);
 
@@ -139,7 +141,16 @@ fn handle_message(id: &MessageID, bytes: &[u8], socket: &mut TcpStream) {
                     (7 - from / 8) as i32,
                 ));
                 response.end_pos =
-                    MessageField::some(Position::from_grid((to % 8) as i32, (7 - to / 8) as i32));
+                    MessageField::some(
+                        Position::from_grid((to % 8) as i32,
+                        (7 - to / 8) as i32)
+                    );
+
+                if let Some(promoted) = res.get_promotion() {
+                    response.promoted_piece = EnumOrUnknown::new(convert_to_proto_piece(promoted));
+                } else {
+                    response.promoted_piece = EnumOrUnknown::new(PieceType::NONE);
+                }
 
                 send_proto_msg(&mut cl, &response);
             });
