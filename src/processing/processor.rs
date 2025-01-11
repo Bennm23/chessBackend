@@ -1,7 +1,6 @@
-use crate::generated::chess::{*};
+use crate::generated::chess::*;
 
-pub fn get_valid_moves(request : &GetValidMoves) -> Option<Vec<Position>> {
-    
+pub fn get_valid_moves(request: &GetValidMoves) -> Option<Vec<Position>> {
     let board = match request.board.as_ref() {
         Some(b) => b,
         None => {
@@ -16,22 +15,20 @@ pub fn get_valid_moves(request : &GetValidMoves) -> Option<Vec<Position>> {
         piece
             .get_valid_moves(board)
             .iter()
-            .map(
-                |p| {p.primary_move().clone()}
-            )
-            .collect()
+            .map(|p| p.primary_move().clone())
+            .collect(),
     )
 }
 
-
-fn square_occupied(board : &Board, col : i32, row : i32) -> bool {
-    let index:usize = (row * 8 + col % 8) as usize;
+fn square_occupied(board: &Board, col: i32, row: i32) -> bool {
+    let index: usize = (row * 8 + col % 8) as usize;
 
     match board.pieces.get(index) {
         Some(piece) => {
-
             return piece.type_.unwrap().eq(&PieceType::NONE);
-        },
-        None => { return false; }
+        }
+        None => {
+            return false;
+        }
     }
 }

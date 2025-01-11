@@ -24,426 +24,6 @@
 /// of protobuf runtime.
 const _PROTOBUF_VERSION_CHECK: () = ::protobuf::VERSION_3_7_1;
 
-// @@protoc_insertion_point(message:TestEnum)
-#[derive(PartialEq,Clone,Default,Debug)]
-pub struct TestEnum {
-    // message fields
-    // @@protoc_insertion_point(field:TestEnum.baseval)
-    pub baseval: i32,
-    // @@protoc_insertion_point(field:TestEnum.nextval)
-    pub nextval: i32,
-    // special fields
-    // @@protoc_insertion_point(special_field:TestEnum.special_fields)
-    pub special_fields: ::protobuf::SpecialFields,
-}
-
-impl<'a> ::std::default::Default for &'a TestEnum {
-    fn default() -> &'a TestEnum {
-        <TestEnum as ::protobuf::Message>::default_instance()
-    }
-}
-
-impl TestEnum {
-    pub fn new() -> TestEnum {
-        ::std::default::Default::default()
-    }
-
-    fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
-        let mut fields = ::std::vec::Vec::with_capacity(2);
-        let mut oneofs = ::std::vec::Vec::with_capacity(0);
-        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
-            "baseval",
-            |m: &TestEnum| { &m.baseval },
-            |m: &mut TestEnum| { &mut m.baseval },
-        ));
-        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
-            "nextval",
-            |m: &TestEnum| { &m.nextval },
-            |m: &mut TestEnum| { &mut m.nextval },
-        ));
-        ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<TestEnum>(
-            "TestEnum",
-            fields,
-            oneofs,
-        )
-    }
-}
-
-impl ::protobuf::Message for TestEnum {
-    const NAME: &'static str = "TestEnum";
-
-    fn is_initialized(&self) -> bool {
-        true
-    }
-
-    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::Result<()> {
-        while let Some(tag) = is.read_raw_tag_or_eof()? {
-            match tag {
-                8 => {
-                    self.baseval = is.read_int32()?;
-                },
-                16 => {
-                    self.nextval = is.read_int32()?;
-                },
-                tag => {
-                    ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
-                },
-            };
-        }
-        ::std::result::Result::Ok(())
-    }
-
-    // Compute sizes of nested messages
-    #[allow(unused_variables)]
-    fn compute_size(&self) -> u64 {
-        let mut my_size = 0;
-        if self.baseval != 0 {
-            my_size += ::protobuf::rt::int32_size(1, self.baseval);
-        }
-        if self.nextval != 0 {
-            my_size += ::protobuf::rt::int32_size(2, self.nextval);
-        }
-        my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
-        self.special_fields.cached_size().set(my_size as u32);
-        my_size
-    }
-
-    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::Result<()> {
-        if self.baseval != 0 {
-            os.write_int32(1, self.baseval)?;
-        }
-        if self.nextval != 0 {
-            os.write_int32(2, self.nextval)?;
-        }
-        os.write_unknown_fields(self.special_fields.unknown_fields())?;
-        ::std::result::Result::Ok(())
-    }
-
-    fn special_fields(&self) -> &::protobuf::SpecialFields {
-        &self.special_fields
-    }
-
-    fn mut_special_fields(&mut self) -> &mut ::protobuf::SpecialFields {
-        &mut self.special_fields
-    }
-
-    fn new() -> TestEnum {
-        TestEnum::new()
-    }
-
-    fn clear(&mut self) {
-        self.baseval = 0;
-        self.nextval = 0;
-        self.special_fields.clear();
-    }
-
-    fn default_instance() -> &'static TestEnum {
-        static instance: TestEnum = TestEnum {
-            baseval: 0,
-            nextval: 0,
-            special_fields: ::protobuf::SpecialFields::new(),
-        };
-        &instance
-    }
-}
-
-impl ::protobuf::MessageFull for TestEnum {
-    fn descriptor() -> ::protobuf::reflect::MessageDescriptor {
-        static descriptor: ::protobuf::rt::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::rt::Lazy::new();
-        descriptor.get(|| file_descriptor().message_by_package_relative_name("TestEnum").unwrap()).clone()
-    }
-}
-
-impl ::std::fmt::Display for TestEnum {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        ::protobuf::text_format::fmt(self, f)
-    }
-}
-
-impl ::protobuf::reflect::ProtobufValue for TestEnum {
-    type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
-}
-
-// @@protoc_insertion_point(message:ValidatePosition)
-#[derive(PartialEq,Clone,Default,Debug)]
-pub struct ValidatePosition {
-    // message fields
-    // @@protoc_insertion_point(field:ValidatePosition.validateCount)
-    pub validateCount: i32,
-    // @@protoc_insertion_point(field:ValidatePosition.validate)
-    pub validate: bool,
-    // special fields
-    // @@protoc_insertion_point(special_field:ValidatePosition.special_fields)
-    pub special_fields: ::protobuf::SpecialFields,
-}
-
-impl<'a> ::std::default::Default for &'a ValidatePosition {
-    fn default() -> &'a ValidatePosition {
-        <ValidatePosition as ::protobuf::Message>::default_instance()
-    }
-}
-
-impl ValidatePosition {
-    pub fn new() -> ValidatePosition {
-        ::std::default::Default::default()
-    }
-
-    fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
-        let mut fields = ::std::vec::Vec::with_capacity(2);
-        let mut oneofs = ::std::vec::Vec::with_capacity(0);
-        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
-            "validateCount",
-            |m: &ValidatePosition| { &m.validateCount },
-            |m: &mut ValidatePosition| { &mut m.validateCount },
-        ));
-        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
-            "validate",
-            |m: &ValidatePosition| { &m.validate },
-            |m: &mut ValidatePosition| { &mut m.validate },
-        ));
-        ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<ValidatePosition>(
-            "ValidatePosition",
-            fields,
-            oneofs,
-        )
-    }
-}
-
-impl ::protobuf::Message for ValidatePosition {
-    const NAME: &'static str = "ValidatePosition";
-
-    fn is_initialized(&self) -> bool {
-        true
-    }
-
-    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::Result<()> {
-        while let Some(tag) = is.read_raw_tag_or_eof()? {
-            match tag {
-                8 => {
-                    self.validateCount = is.read_int32()?;
-                },
-                16 => {
-                    self.validate = is.read_bool()?;
-                },
-                tag => {
-                    ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
-                },
-            };
-        }
-        ::std::result::Result::Ok(())
-    }
-
-    // Compute sizes of nested messages
-    #[allow(unused_variables)]
-    fn compute_size(&self) -> u64 {
-        let mut my_size = 0;
-        if self.validateCount != 0 {
-            my_size += ::protobuf::rt::int32_size(1, self.validateCount);
-        }
-        if self.validate != false {
-            my_size += 1 + 1;
-        }
-        my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
-        self.special_fields.cached_size().set(my_size as u32);
-        my_size
-    }
-
-    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::Result<()> {
-        if self.validateCount != 0 {
-            os.write_int32(1, self.validateCount)?;
-        }
-        if self.validate != false {
-            os.write_bool(2, self.validate)?;
-        }
-        os.write_unknown_fields(self.special_fields.unknown_fields())?;
-        ::std::result::Result::Ok(())
-    }
-
-    fn special_fields(&self) -> &::protobuf::SpecialFields {
-        &self.special_fields
-    }
-
-    fn mut_special_fields(&mut self) -> &mut ::protobuf::SpecialFields {
-        &mut self.special_fields
-    }
-
-    fn new() -> ValidatePosition {
-        ValidatePosition::new()
-    }
-
-    fn clear(&mut self) {
-        self.validateCount = 0;
-        self.validate = false;
-        self.special_fields.clear();
-    }
-
-    fn default_instance() -> &'static ValidatePosition {
-        static instance: ValidatePosition = ValidatePosition {
-            validateCount: 0,
-            validate: false,
-            special_fields: ::protobuf::SpecialFields::new(),
-        };
-        &instance
-    }
-}
-
-impl ::protobuf::MessageFull for ValidatePosition {
-    fn descriptor() -> ::protobuf::reflect::MessageDescriptor {
-        static descriptor: ::protobuf::rt::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::rt::Lazy::new();
-        descriptor.get(|| file_descriptor().message_by_package_relative_name("ValidatePosition").unwrap()).clone()
-    }
-}
-
-impl ::std::fmt::Display for ValidatePosition {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        ::protobuf::text_format::fmt(self, f)
-    }
-}
-
-impl ::protobuf::reflect::ProtobufValue for ValidatePosition {
-    type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
-}
-
-// @@protoc_insertion_point(message:MovePiece)
-#[derive(PartialEq,Clone,Default,Debug)]
-pub struct MovePiece {
-    // message fields
-    // @@protoc_insertion_point(field:MovePiece.from)
-    pub from: i32,
-    // @@protoc_insertion_point(field:MovePiece.to)
-    pub to: i32,
-    // special fields
-    // @@protoc_insertion_point(special_field:MovePiece.special_fields)
-    pub special_fields: ::protobuf::SpecialFields,
-}
-
-impl<'a> ::std::default::Default for &'a MovePiece {
-    fn default() -> &'a MovePiece {
-        <MovePiece as ::protobuf::Message>::default_instance()
-    }
-}
-
-impl MovePiece {
-    pub fn new() -> MovePiece {
-        ::std::default::Default::default()
-    }
-
-    fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
-        let mut fields = ::std::vec::Vec::with_capacity(2);
-        let mut oneofs = ::std::vec::Vec::with_capacity(0);
-        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
-            "from",
-            |m: &MovePiece| { &m.from },
-            |m: &mut MovePiece| { &mut m.from },
-        ));
-        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
-            "to",
-            |m: &MovePiece| { &m.to },
-            |m: &mut MovePiece| { &mut m.to },
-        ));
-        ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<MovePiece>(
-            "MovePiece",
-            fields,
-            oneofs,
-        )
-    }
-}
-
-impl ::protobuf::Message for MovePiece {
-    const NAME: &'static str = "MovePiece";
-
-    fn is_initialized(&self) -> bool {
-        true
-    }
-
-    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::Result<()> {
-        while let Some(tag) = is.read_raw_tag_or_eof()? {
-            match tag {
-                8 => {
-                    self.from = is.read_int32()?;
-                },
-                16 => {
-                    self.to = is.read_int32()?;
-                },
-                tag => {
-                    ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
-                },
-            };
-        }
-        ::std::result::Result::Ok(())
-    }
-
-    // Compute sizes of nested messages
-    #[allow(unused_variables)]
-    fn compute_size(&self) -> u64 {
-        let mut my_size = 0;
-        if self.from != 0 {
-            my_size += ::protobuf::rt::int32_size(1, self.from);
-        }
-        if self.to != 0 {
-            my_size += ::protobuf::rt::int32_size(2, self.to);
-        }
-        my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
-        self.special_fields.cached_size().set(my_size as u32);
-        my_size
-    }
-
-    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::Result<()> {
-        if self.from != 0 {
-            os.write_int32(1, self.from)?;
-        }
-        if self.to != 0 {
-            os.write_int32(2, self.to)?;
-        }
-        os.write_unknown_fields(self.special_fields.unknown_fields())?;
-        ::std::result::Result::Ok(())
-    }
-
-    fn special_fields(&self) -> &::protobuf::SpecialFields {
-        &self.special_fields
-    }
-
-    fn mut_special_fields(&mut self) -> &mut ::protobuf::SpecialFields {
-        &mut self.special_fields
-    }
-
-    fn new() -> MovePiece {
-        MovePiece::new()
-    }
-
-    fn clear(&mut self) {
-        self.from = 0;
-        self.to = 0;
-        self.special_fields.clear();
-    }
-
-    fn default_instance() -> &'static MovePiece {
-        static instance: MovePiece = MovePiece {
-            from: 0,
-            to: 0,
-            special_fields: ::protobuf::SpecialFields::new(),
-        };
-        &instance
-    }
-}
-
-impl ::protobuf::MessageFull for MovePiece {
-    fn descriptor() -> ::protobuf::reflect::MessageDescriptor {
-        static descriptor: ::protobuf::rt::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::rt::Lazy::new();
-        descriptor.get(|| file_descriptor().message_by_package_relative_name("MovePiece").unwrap()).clone()
-    }
-}
-
-impl ::std::fmt::Display for MovePiece {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        ::protobuf::text_format::fmt(self, f)
-    }
-}
-
-impl ::protobuf::reflect::ProtobufValue for MovePiece {
-    type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
-}
-
 #[derive(Clone,Copy,PartialEq,Eq,Debug,Hash)]
 // @@protoc_insertion_point(enum:MessageID)
 pub enum MessageID {
@@ -453,6 +33,8 @@ pub enum MessageID {
     MOVE_PIECE = 1,
     // @@protoc_insertion_point(enum_value:MessageID.GET_VALID_MOVES)
     GET_VALID_MOVES = 2,
+    // @@protoc_insertion_point(enum_value:MessageID.FIND_BEST)
+    FIND_BEST = 3,
 }
 
 impl ::protobuf::Enum for MessageID {
@@ -467,6 +49,7 @@ impl ::protobuf::Enum for MessageID {
             0 => ::std::option::Option::Some(MessageID::GET_BEST_MOVE),
             1 => ::std::option::Option::Some(MessageID::MOVE_PIECE),
             2 => ::std::option::Option::Some(MessageID::GET_VALID_MOVES),
+            3 => ::std::option::Option::Some(MessageID::FIND_BEST),
             _ => ::std::option::Option::None
         }
     }
@@ -476,6 +59,7 @@ impl ::protobuf::Enum for MessageID {
             "GET_BEST_MOVE" => ::std::option::Option::Some(MessageID::GET_BEST_MOVE),
             "MOVE_PIECE" => ::std::option::Option::Some(MessageID::MOVE_PIECE),
             "GET_VALID_MOVES" => ::std::option::Option::Some(MessageID::GET_VALID_MOVES),
+            "FIND_BEST" => ::std::option::Option::Some(MessageID::FIND_BEST),
             _ => ::std::option::Option::None
         }
     }
@@ -484,6 +68,7 @@ impl ::protobuf::Enum for MessageID {
         MessageID::GET_BEST_MOVE,
         MessageID::MOVE_PIECE,
         MessageID::GET_VALID_MOVES,
+        MessageID::FIND_BEST,
     ];
 }
 
@@ -512,44 +97,21 @@ impl MessageID {
 }
 
 static file_descriptor_proto_data: &'static [u8] = b"\
-    \n\x0ccommon.proto\">\n\x08TestEnum\x12\x18\n\x07baseval\x18\x01\x20\x01\
-    (\x05R\x07baseval\x12\x18\n\x07nextval\x18\x02\x20\x01(\x05R\x07nextval\
-    \"T\n\x10ValidatePosition\x12$\n\rvalidateCount\x18\x01\x20\x01(\x05R\rv\
-    alidateCount\x12\x1a\n\x08validate\x18\x02\x20\x01(\x08R\x08validate\"/\
-    \n\tMovePiece\x12\x12\n\x04from\x18\x01\x20\x01(\x05R\x04from\x12\x0e\n\
-    \x02to\x18\x02\x20\x01(\x05R\x02to*C\n\tMessageID\x12\x11\n\rGET_BEST_MO\
-    VE\x10\0\x12\x0e\n\nMOVE_PIECE\x10\x01\x12\x13\n\x0fGET_VALID_MOVES\x10\
-    \x02B\x13\n\tprotocolsB\x06CommonJ\xe1\x04\n\x06\x12\x04\0\0\x18\x01\n\
-    \x08\n\x01\x0c\x12\x03\0\0\x12\n\x08\n\x01\x08\x12\x03\x02\0\"\n\t\n\x02\
-    \x08\x01\x12\x03\x02\0\"\n\x08\n\x01\x08\x12\x03\x03\0'\n\t\n\x02\x08\
-    \x08\x12\x03\x03\0'\n\n\n\x02\x05\0\x12\x04\x05\0\t\x01\n\n\n\x03\x05\0\
-    \x01\x12\x03\x05\x05\x0e\n\x0b\n\x04\x05\0\x02\0\x12\x03\x06\x04\x16\n\
-    \x0c\n\x05\x05\0\x02\0\x01\x12\x03\x06\x04\x11\n\x0c\n\x05\x05\0\x02\0\
-    \x02\x12\x03\x06\x14\x15\n\x0b\n\x04\x05\0\x02\x01\x12\x03\x07\x04\x13\n\
-    \x0c\n\x05\x05\0\x02\x01\x01\x12\x03\x07\x04\x0e\n\x0c\n\x05\x05\0\x02\
-    \x01\x02\x12\x03\x07\x11\x12\n\x0b\n\x04\x05\0\x02\x02\x12\x03\x08\x04\
-    \x18\n\x0c\n\x05\x05\0\x02\x02\x01\x12\x03\x08\x04\x13\n\x0c\n\x05\x05\0\
-    \x02\x02\x02\x12\x03\x08\x16\x17\n\n\n\x02\x04\0\x12\x04\x0b\0\x0e\x01\n\
-    \n\n\x03\x04\0\x01\x12\x03\x0b\x08\x10\n\x0b\n\x04\x04\0\x02\0\x12\x03\
-    \x0c\x04\x16\n\x0c\n\x05\x04\0\x02\0\x05\x12\x03\x0c\x04\t\n\x0c\n\x05\
-    \x04\0\x02\0\x01\x12\x03\x0c\n\x11\n\x0c\n\x05\x04\0\x02\0\x03\x12\x03\
-    \x0c\x14\x15\n\x0b\n\x04\x04\0\x02\x01\x12\x03\r\x04\x16\n\x0c\n\x05\x04\
-    \0\x02\x01\x05\x12\x03\r\x04\t\n\x0c\n\x05\x04\0\x02\x01\x01\x12\x03\r\n\
-    \x11\n\x0c\n\x05\x04\0\x02\x01\x03\x12\x03\r\x14\x15\n\n\n\x02\x04\x01\
-    \x12\x04\x10\0\x13\x01\n\n\n\x03\x04\x01\x01\x12\x03\x10\x08\x18\n\x0b\n\
-    \x04\x04\x01\x02\0\x12\x03\x11\x04\x1c\n\x0c\n\x05\x04\x01\x02\0\x05\x12\
-    \x03\x11\x04\t\n\x0c\n\x05\x04\x01\x02\0\x01\x12\x03\x11\n\x17\n\x0c\n\
-    \x05\x04\x01\x02\0\x03\x12\x03\x11\x1a\x1b\n\x0b\n\x04\x04\x01\x02\x01\
-    \x12\x03\x12\x04\x16\n\x0c\n\x05\x04\x01\x02\x01\x05\x12\x03\x12\x04\x08\
-    \n\x0c\n\x05\x04\x01\x02\x01\x01\x12\x03\x12\t\x11\n\x0c\n\x05\x04\x01\
-    \x02\x01\x03\x12\x03\x12\x14\x15\n\n\n\x02\x04\x02\x12\x04\x15\0\x18\x01\
-    \n\n\n\x03\x04\x02\x01\x12\x03\x15\x08\x11\n\x0b\n\x04\x04\x02\x02\0\x12\
-    \x03\x16\x04\x13\n\x0c\n\x05\x04\x02\x02\0\x05\x12\x03\x16\x04\t\n\x0c\n\
-    \x05\x04\x02\x02\0\x01\x12\x03\x16\n\x0e\n\x0c\n\x05\x04\x02\x02\0\x03\
-    \x12\x03\x16\x11\x12\n\x0b\n\x04\x04\x02\x02\x01\x12\x03\x17\x04\x11\n\
-    \x0c\n\x05\x04\x02\x02\x01\x05\x12\x03\x17\x04\t\n\x0c\n\x05\x04\x02\x02\
-    \x01\x01\x12\x03\x17\n\x0c\n\x0c\n\x05\x04\x02\x02\x01\x03\x12\x03\x17\
-    \x0f\x10b\x06proto3\
+    \n\x0ccommon.proto*R\n\tMessageID\x12\x11\n\rGET_BEST_MOVE\x10\0\x12\x0e\
+    \n\nMOVE_PIECE\x10\x01\x12\x13\n\x0fGET_VALID_MOVES\x10\x02\x12\r\n\tFIN\
+    D_BEST\x10\x03B\x13\n\tprotocolsB\x06CommonJ\xf8\x01\n\x06\x12\x04\0\0\
+    \x0b\x01\n\x08\n\x01\x0c\x12\x03\0\0\x12\n\x08\n\x01\x08\x12\x03\x02\0\"\
+    \n\t\n\x02\x08\x01\x12\x03\x02\0\"\n\x08\n\x01\x08\x12\x03\x03\0'\n\t\n\
+    \x02\x08\x08\x12\x03\x03\0'\n\n\n\x02\x05\0\x12\x04\x05\0\x0b\x01\n\n\n\
+    \x03\x05\0\x01\x12\x03\x05\x05\x0e\n\x0b\n\x04\x05\0\x02\0\x12\x03\x06\
+    \x04\x16\n\x0c\n\x05\x05\0\x02\0\x01\x12\x03\x06\x04\x11\n\x0c\n\x05\x05\
+    \0\x02\0\x02\x12\x03\x06\x14\x15\n\x0b\n\x04\x05\0\x02\x01\x12\x03\x07\
+    \x04\x13\n\x0c\n\x05\x05\0\x02\x01\x01\x12\x03\x07\x04\x0e\n\x0c\n\x05\
+    \x05\0\x02\x01\x02\x12\x03\x07\x11\x12\n\x0b\n\x04\x05\0\x02\x02\x12\x03\
+    \x08\x04\x18\n\x0c\n\x05\x05\0\x02\x02\x01\x12\x03\x08\x04\x13\n\x0c\n\
+    \x05\x05\0\x02\x02\x02\x12\x03\x08\x16\x17\n\x0b\n\x04\x05\0\x02\x03\x12\
+    \x03\n\x04\x12\n\x0c\n\x05\x05\0\x02\x03\x01\x12\x03\n\x04\r\n\x0c\n\x05\
+    \x05\0\x02\x03\x02\x12\x03\n\x10\x11b\x06proto3\
 ";
 
 /// `FileDescriptorProto` object which was a source for this generated file
@@ -567,10 +129,7 @@ pub fn file_descriptor() -> &'static ::protobuf::reflect::FileDescriptor {
     file_descriptor.get(|| {
         let generated_file_descriptor = generated_file_descriptor_lazy.get(|| {
             let mut deps = ::std::vec::Vec::with_capacity(0);
-            let mut messages = ::std::vec::Vec::with_capacity(3);
-            messages.push(TestEnum::generated_message_descriptor_data());
-            messages.push(ValidatePosition::generated_message_descriptor_data());
-            messages.push(MovePiece::generated_message_descriptor_data());
+            let mut messages = ::std::vec::Vec::with_capacity(0);
             let mut enums = ::std::vec::Vec::with_capacity(1);
             enums.push(MessageID::generated_enum_descriptor_data());
             ::protobuf::reflect::GeneratedFileDescriptor::new_generated(

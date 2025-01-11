@@ -63,3 +63,13 @@ message Move {
 message BestMoveResponse {
     Move best_move = 1;
 }
+
+message FindBest {
+    string fen_string = 1;
+}
+
+message FindBestResponse {
+    Position from_pos = 1;
+    Position end_pos  = 2;
+
+}

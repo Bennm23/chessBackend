@@ -7,19 +7,6 @@ enum MessageID {
     GET_BEST_MOVE = 0;
     MOVE_PIECE = 1;
     GET_VALID_MOVES = 2;
-}
 
-message TestEnum {
-    int32 baseval = 1;
-    int32 nextval = 2;
-}
-
-message ValidatePosition {
-    int32 validateCount = 1;
-    bool validate = 2;
-}
-
-message MovePiece {
-    int32 from = 1;
-    int32 to = 2;
+    FIND_BEST = 3;
 }
