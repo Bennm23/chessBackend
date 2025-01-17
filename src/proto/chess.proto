@@ -43,11 +43,13 @@ message Board {
 }
 
 message GetValidMoves {
-    Board board = 1;
-    ProtoPiece piece_to_move = 2;
+    ProtoPiece piece_to_move = 1;
+    string fen_string = 2;
+
 }
 message ValidMovesResponse {
     repeated Position moves = 1;
+    ProtoPiece request_piece = 2;
 }
 
 message GetBestMove {
@@ -71,5 +73,5 @@ message FindBest {
 message FindBestResponse {
     Position from_pos = 1;
     Position end_pos  = 2;
-
+    PieceType promoted_piece = 3;
 }

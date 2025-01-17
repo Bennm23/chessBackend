@@ -35,6 +35,10 @@ pub enum MessageID {
     GET_VALID_MOVES = 2,
     // @@protoc_insertion_point(enum_value:MessageID.FIND_BEST)
     FIND_BEST = 3,
+    // @@protoc_insertion_point(enum_value:MessageID.VALID_MOVES_RESPONSE)
+    VALID_MOVES_RESPONSE = 4,
+    // @@protoc_insertion_point(enum_value:MessageID.FIND_BEST_RESPONSE)
+    FIND_BEST_RESPONSE = 5,
 }
 
 impl ::protobuf::Enum for MessageID {
@@ -50,6 +54,8 @@ impl ::protobuf::Enum for MessageID {
             1 => ::std::option::Option::Some(MessageID::MOVE_PIECE),
             2 => ::std::option::Option::Some(MessageID::GET_VALID_MOVES),
             3 => ::std::option::Option::Some(MessageID::FIND_BEST),
+            4 => ::std::option::Option::Some(MessageID::VALID_MOVES_RESPONSE),
+            5 => ::std::option::Option::Some(MessageID::FIND_BEST_RESPONSE),
             _ => ::std::option::Option::None
         }
     }
@@ -60,6 +66,8 @@ impl ::protobuf::Enum for MessageID {
             "MOVE_PIECE" => ::std::option::Option::Some(MessageID::MOVE_PIECE),
             "GET_VALID_MOVES" => ::std::option::Option::Some(MessageID::GET_VALID_MOVES),
             "FIND_BEST" => ::std::option::Option::Some(MessageID::FIND_BEST),
+            "VALID_MOVES_RESPONSE" => ::std::option::Option::Some(MessageID::VALID_MOVES_RESPONSE),
+            "FIND_BEST_RESPONSE" => ::std::option::Option::Some(MessageID::FIND_BEST_RESPONSE),
             _ => ::std::option::Option::None
         }
     }
@@ -69,6 +77,8 @@ impl ::protobuf::Enum for MessageID {
         MessageID::MOVE_PIECE,
         MessageID::GET_VALID_MOVES,
         MessageID::FIND_BEST,
+        MessageID::VALID_MOVES_RESPONSE,
+        MessageID::FIND_BEST_RESPONSE,
     ];
 }
 
@@ -97,21 +107,27 @@ impl MessageID {
 }
 
 static file_descriptor_proto_data: &'static [u8] = b"\
-    \n\x0ccommon.proto*R\n\tMessageID\x12\x11\n\rGET_BEST_MOVE\x10\0\x12\x0e\
-    \n\nMOVE_PIECE\x10\x01\x12\x13\n\x0fGET_VALID_MOVES\x10\x02\x12\r\n\tFIN\
-    D_BEST\x10\x03B\x13\n\tprotocolsB\x06CommonJ\xf8\x01\n\x06\x12\x04\0\0\
-    \x0b\x01\n\x08\n\x01\x0c\x12\x03\0\0\x12\n\x08\n\x01\x08\x12\x03\x02\0\"\
-    \n\t\n\x02\x08\x01\x12\x03\x02\0\"\n\x08\n\x01\x08\x12\x03\x03\0'\n\t\n\
-    \x02\x08\x08\x12\x03\x03\0'\n\n\n\x02\x05\0\x12\x04\x05\0\x0b\x01\n\n\n\
-    \x03\x05\0\x01\x12\x03\x05\x05\x0e\n\x0b\n\x04\x05\0\x02\0\x12\x03\x06\
-    \x04\x16\n\x0c\n\x05\x05\0\x02\0\x01\x12\x03\x06\x04\x11\n\x0c\n\x05\x05\
-    \0\x02\0\x02\x12\x03\x06\x14\x15\n\x0b\n\x04\x05\0\x02\x01\x12\x03\x07\
-    \x04\x13\n\x0c\n\x05\x05\0\x02\x01\x01\x12\x03\x07\x04\x0e\n\x0c\n\x05\
-    \x05\0\x02\x01\x02\x12\x03\x07\x11\x12\n\x0b\n\x04\x05\0\x02\x02\x12\x03\
-    \x08\x04\x18\n\x0c\n\x05\x05\0\x02\x02\x01\x12\x03\x08\x04\x13\n\x0c\n\
-    \x05\x05\0\x02\x02\x02\x12\x03\x08\x16\x17\n\x0b\n\x04\x05\0\x02\x03\x12\
-    \x03\n\x04\x12\n\x0c\n\x05\x05\0\x02\x03\x01\x12\x03\n\x04\r\n\x0c\n\x05\
-    \x05\0\x02\x03\x02\x12\x03\n\x10\x11b\x06proto3\
+    \n\x0ccommon.proto*\x84\x01\n\tMessageID\x12\x11\n\rGET_BEST_MOVE\x10\0\
+    \x12\x0e\n\nMOVE_PIECE\x10\x01\x12\x13\n\x0fGET_VALID_MOVES\x10\x02\x12\
+    \r\n\tFIND_BEST\x10\x03\x12\x18\n\x14VALID_MOVES_RESPONSE\x10\x04\x12\
+    \x16\n\x12FIND_BEST_RESPONSE\x10\x05B\x13\n\tprotocolsB\x06CommonJ\xca\
+    \x02\n\x06\x12\x04\0\0\x0e\x01\n\x08\n\x01\x0c\x12\x03\0\0\x12\n\x08\n\
+    \x01\x08\x12\x03\x02\0\"\n\t\n\x02\x08\x01\x12\x03\x02\0\"\n\x08\n\x01\
+    \x08\x12\x03\x03\0'\n\t\n\x02\x08\x08\x12\x03\x03\0'\n\n\n\x02\x05\0\x12\
+    \x04\x05\0\x0e\x01\n\n\n\x03\x05\0\x01\x12\x03\x05\x05\x0e\n\x0b\n\x04\
+    \x05\0\x02\0\x12\x03\x06\x04\x16\n\x0c\n\x05\x05\0\x02\0\x01\x12\x03\x06\
+    \x04\x11\n\x0c\n\x05\x05\0\x02\0\x02\x12\x03\x06\x14\x15\n\x0b\n\x04\x05\
+    \0\x02\x01\x12\x03\x07\x04\x13\n\x0c\n\x05\x05\0\x02\x01\x01\x12\x03\x07\
+    \x04\x0e\n\x0c\n\x05\x05\0\x02\x01\x02\x12\x03\x07\x11\x12\n\x0b\n\x04\
+    \x05\0\x02\x02\x12\x03\x08\x04\x18\n\x0c\n\x05\x05\0\x02\x02\x01\x12\x03\
+    \x08\x04\x13\n\x0c\n\x05\x05\0\x02\x02\x02\x12\x03\x08\x16\x17\n\x0b\n\
+    \x04\x05\0\x02\x03\x12\x03\n\x04\x12\n\x0c\n\x05\x05\0\x02\x03\x01\x12\
+    \x03\n\x04\r\n\x0c\n\x05\x05\0\x02\x03\x02\x12\x03\n\x10\x11\n\x0b\n\x04\
+    \x05\0\x02\x04\x12\x03\x0c\x04\x1d\n\x0c\n\x05\x05\0\x02\x04\x01\x12\x03\
+    \x0c\x04\x18\n\x0c\n\x05\x05\0\x02\x04\x02\x12\x03\x0c\x1b\x1c\n\x0b\n\
+    \x04\x05\0\x02\x05\x12\x03\r\x04\x1b\n\x0c\n\x05\x05\0\x02\x05\x01\x12\
+    \x03\r\x04\x16\n\x0c\n\x05\x05\0\x02\x05\x02\x12\x03\r\x19\x1ab\x06proto\
+    3\
 ";
 
 /// `FileDescriptorProto` object which was a source for this generated file

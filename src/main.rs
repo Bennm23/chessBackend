@@ -1,16 +1,16 @@
-mod generated;
-mod processing;
+pub mod generated;
+pub mod processing;
 
-use generated::chess::*;
-use generated::common::*;
-
-use processing::board_evaluator::fix_castle_rights;
-use processing::piece_handles::convert_to_proto_piece;
-use processing::{board_evaluator, processor::*};
-
+use generated::chess::{self, FindBest, FindBestResponse, GetValidMoves, Position, ValidMovesResponse};
+use generated::common::MessageID;
+use pleco::bots::{AlphaBetaSearcher, IterativeSearcher};
+use pleco::tools::Searcher;
+use pleco::{Piece, PieceType, SQ};
+use processing::searching::find_best_move;
 use protobuf::EnumOrUnknown;
 use protobuf::{Enum, Message, MessageField};
 use std::str::FromStr;
+use std::time::Instant;
 use std::{
     io::{Read, Write},
     net::TcpStream,
@@ -60,7 +60,6 @@ fn read_from_socket(socket: &mut TcpStream) {
             Some(id) => id,
             None => {
                 println!("Failed to convert message ID");
-                send_failed_ack(socket);
                 continue;
             }
         };
@@ -71,11 +70,9 @@ fn read_from_socket(socket: &mut TcpStream) {
             Ok(_) => {}
             Err(_) => {
                 println!("Failed to Read Exact Buffer");
-                send_failed_ack(socket);
                 continue;
             }
         }
-        send_success_ack(socket);
         handle_message(&msg_id, &to_read, socket);
     }
 }
@@ -95,25 +92,51 @@ pub static SEARCH_DEPTH: i8 = 7;
 pub static LATE_SEARCH_DEPTH: i8 = 9;
 const NUM_THREADS: usize = 4;
 
+impl Position {
+    pub fn from_grid(col: i32, row: i32) -> Position {
+        let mut pos = Position::new();
+        pos.row = row;
+        pos.col = col;
+        pos
+    }
+
+    pub fn out_of_bounds(col: i32, row: i32) -> bool {
+        col > 7 || col < 0 || row > 7 || row < 0
+    }
+
+    pub fn move_to(&self, col_inc: i32, row_inc: i32) -> Position {
+        Position::from_grid(self.col + col_inc, self.row + row_inc)
+    }
+
+    pub fn from_cindex(cindex: u8) -> Position {
+        Position::from_grid(
+            (cindex % 8) as i32,
+            (7 - cindex / 8) as i32,
+        )
+    }
+    pub fn to_cindex(&self) -> u8 {
+        ((self.row - 7).abs() * 8 + self.col) as u8
+    }
+}
+
+fn rc_to_cindex(row: i32, col: i32) -> u8 {
+    ((row - 7).abs() * 8 + col) as u8
+}
+
+pub fn convert_to_proto_piece(piece: PieceType) -> generated::chess::PieceType {
+    match piece {
+        PieceType::P => generated::chess::PieceType::PAWN,
+        PieceType::B => generated::chess::PieceType::BISHOP,
+        PieceType::N => generated::chess::PieceType::KNIGHT,
+        PieceType::R => generated::chess::PieceType::ROOK,
+        PieceType::Q => generated::chess::PieceType::QUEEN,
+        PieceType::K => generated::chess::PieceType::KING,
+        _ => generated::chess::PieceType::NONE
+    }
+}
+
 fn handle_message(id: &MessageID, bytes: &[u8], socket: &mut TcpStream) {
     match id {
-        MessageID::GET_BEST_MOVE => {
-            let mut cl = socket.try_clone().unwrap();
-            let request_msg =
-                GetBestMove::parse_from_bytes(bytes).expect("Could not parse GetBestMove message");
-
-            thread::spawn(move || {
-                let board = request_msg.board.unwrap();
-
-                // let depth = if board.turnCount > 60 { LATE_SEARCH_DEPTH } else { SEARCH_DEPTH };
-                let res = board.find_best_move_chunks(SEARCH_DEPTH, &request_msg.player.unwrap());
-
-                let mut response = BestMoveResponse::new();
-                response.best_move = MessageField::some(res.unwrap());
-
-                send_proto_msg(&mut cl, &response);
-            });
-        }
         MessageID::FIND_BEST => {
             let mut cl = socket.try_clone().unwrap();
             let request_msg =
@@ -121,38 +144,37 @@ fn handle_message(id: &MessageID, bytes: &[u8], socket: &mut TcpStream) {
 
             println!("Got FEN String = {}", request_msg.fen_string);
             thread::spawn(move || {
-                let orig_board =
-                    chess::Board::from_str(&request_msg.fen_string).expect("FEN STRING ERROR");
+                let start = Instant::now();
+                let mut board = pleco::Board::from_fen(&request_msg.fen_string).expect("Board Fen Create Failed");
 
-                let board = fix_castle_rights(&orig_board, request_msg.fen_string);
 
-                println!("Start Board =\n{:?}", board);
-                let res = board_evaluator::find_best_move_iterable(board, 11);
+                let mv = find_best_move(&mut board, 9);
+                // let mv = IterativeSearcher::best_move(board, 7);
 
-                println!("Best Move = {}", res);
 
-                let from = res.get_source().to_index();
-                let to = res.get_dest().to_index();
+                println!("Move = {mv}");
+
+                let elapsed = start.elapsed();
+
+                println!("Search Took {} ms", elapsed.as_millis());
+
+                println!("mv Src = {}", mv.get_src_u8());
+                println!("mv dest = {}", mv.get_dest_u8());
+                let from = mv.get_src_u8();
+                let to = mv.get_dest_u8();
 
                 let mut response = FindBestResponse::new();
-                //Row position is 0 indexed at white row
-                response.from_pos = MessageField::some(Position::from_grid(
-                    (from % 8) as i32,
-                    (7 - from / 8) as i32,
-                ));
-                response.end_pos =
-                    MessageField::some(
-                        Position::from_grid((to % 8) as i32,
-                        (7 - to / 8) as i32)
-                    );
+                // //Row position is 0 indexed at white row
+                response.from_pos = MessageField::some(Position::from_cindex(from));
+                response.end_pos =  MessageField::some(Position::from_cindex(to));
 
-                if let Some(promoted) = res.get_promotion() {
-                    response.promoted_piece = EnumOrUnknown::new(convert_to_proto_piece(promoted));
+                if mv.is_promo() {
+                    response.promoted_piece = EnumOrUnknown::new(convert_to_proto_piece(mv.promo_piece()));
                 } else {
-                    response.promoted_piece = EnumOrUnknown::new(PieceType::NONE);
+                    response.promoted_piece = EnumOrUnknown::new(generated::chess::PieceType::NONE);
                 }
 
-                send_proto_msg(&mut cl, &response);
+                send_proto_msg(&mut cl, &response, &MessageID::FIND_BEST_RESPONSE);
             });
         }
         MessageID::GET_VALID_MOVES => {
@@ -161,18 +183,44 @@ fn handle_message(id: &MessageID, bytes: &[u8], socket: &mut TcpStream) {
                 .expect("Could not parse Get Valid Moves Msg from bytes");
 
             thread::spawn(move || {
-                let ret = get_valid_moves(&request_msg);
-                let result = match ret {
-                    Some(res) => res,
-                    None => {
-                        println!("Get Valid Moves Returned NONE");
-                        Vec::new()
-                    }
-                };
-                let mut response = ValidMovesResponse::new();
-                response.moves = result;
+                let board = pleco::Board::from_fen(&request_msg.fen_string).expect("Board Fen Create Failed");
 
-                send_proto_msg(&mut cl, &response);
+                let mvs = board.generate_moves();
+                let mut proto_moves = Vec::new();
+
+                let piece = board.piece_at_sq(SQ(rc_to_cindex(request_msg.piece_to_move.row, request_msg.piece_to_move.col)));
+                let sq = rc_to_cindex(request_msg.piece_to_move.row, request_msg.piece_to_move.col);
+
+                let ksq = board.king_sq(board.turn());
+
+                for mv in mvs {
+                    let from = mv.get_src_u8();
+                    if from == sq {
+
+                        let mut to = mv.get_dest_u8();
+                        //Manually adjust castle move
+                        if from == ksq.0 {
+                            if from == 60 && to == 63 {
+                                to = 62;
+                            } else if from == 60 && to == 56 {
+                                to = 58;
+                            } else if from == 4 && to == 0 {
+                                to = 2;
+                            } else if from == 4 && to == 7 {
+                                to = 6;
+                            }
+                            println!("King Move = {from} -> {to}");
+                        }
+                        let pos = Position::from_cindex(to);
+                        proto_moves.push(pos);
+                    }
+                }
+
+                let mut response = ValidMovesResponse::new();
+                response.moves = proto_moves;
+                response.request_piece = request_msg.piece_to_move;
+
+                send_proto_msg(&mut cl, &response, &MessageID::VALID_MOVES_RESPONSE);
             });
         }
         _ => {
@@ -181,16 +229,24 @@ fn handle_message(id: &MessageID, bytes: &[u8], socket: &mut TcpStream) {
     }
 }
 
-pub fn send_proto_msg(socket: &mut TcpStream, msg: &impl Message) {
+pub fn send_proto_msg(socket: &mut TcpStream, msg: &impl Message, msg_id: &MessageID) {
     let write_result = msg.write_to_bytes();
     match write_result {
         Ok(bytes) => {
             let size_bytes = i32::to_be_bytes(bytes.len() as i32);
             send(socket, &size_bytes);
+            send(socket, &msg_id.value().to_be_bytes());
             send(socket, &bytes);
         }
         Err(_) => {
-            send_failed_ack(socket);
+            println!("Failed to send proto message!");
         }
+    }
+}
+
+
+pub mod tester {
+    fn add(a: i32, b: i32) {
+
     }
 }
