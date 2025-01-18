@@ -50,8 +50,14 @@ fn score_pawns<P: PlayerTrait>(board: &Board) -> MyVal {
 
     // let mut sqs_defended = BitBoard(0);
 
+    let count_other = board.non_pawn_material(P::player().other_player());
+
     for square in my_pawns {
+        if count_other < 4 {
+            score += PAWN_LATE_POS[P::player() as usize][square.0 as usize];
+        } else {
         score += PAWN_EARLY_POS[P::player() as usize][square.0 as usize];
+        }
         // sqs_defended |= board.magic_helper.pawn_attacks_from(square, P::player());
 
         let neighbors = my_pawns & adjacent_file(square.file());

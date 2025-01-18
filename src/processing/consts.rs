@@ -1,5 +1,5 @@
 use lazy_static::lazy_static;
-use pleco::core::masks::{FILE_CNT, PLAYER_CNT, RANK_CNT, SQ_CNT};
+use pleco::{core::masks::{FILE_CNT, PLAYER_CNT, RANK_CNT, SQ_CNT}, tools::tt::TranspositionTable, PieceType};
 
 
 
@@ -46,6 +46,10 @@ lazy_static! {
            flatten(PAWN_EARLY_POS_EVAL),
            flatten(flip(PAWN_EARLY_POS_EVAL))   
     ];
+    pub static ref PAWN_LATE_POS: [[MyVal; SQ_CNT]; PLAYER_CNT] = [
+           flatten(PAWN_LATE_POS_EVAL),
+           flatten(flip(PAWN_LATE_POS_EVAL))   
+    ];
     pub static ref KNIGHT_POS: [MyVal; SQ_CNT] = flatten(KNIGHT_POS_EVAL);
 
     pub static ref ROOK_EARLY_POS: [[MyVal; SQ_CNT]; PLAYER_CNT] = [
@@ -72,6 +76,16 @@ const PAWN_EARLY_POS_EVAL: [[MyVal; FILE_CNT]; RANK_CNT] = [
     [  0,  0,  8, 25, 25,  8,  0,  0 ],
     [  0,  0, 10, 15, 15, 10,  0,  0 ],
     [ 15, 15, 12, 10, 10, 12, 15, 15 ],
+    [  0,  0,  0,  0,  0,  0,  0,  0 ], //RANK 1
+];
+const PAWN_LATE_POS_EVAL: [[MyVal; FILE_CNT]; RANK_CNT] = [
+    [650,650,650,650,650,650,650,650 ], //RANK 8
+    [250,250,250,250,250,250,250,250 ],
+    [100,100, 50, 50, 50, 50,100,100 ],
+    [ 25, 25, 20, 20, 20, 20, 25, 25 ],
+    [ 15, 15, 10, 10, 10, 10, 15, 15 ],
+    [  0,  0,  0,  0,  0,  0,  0,  0 ],
+    [  0,  0,  0,  0,  0,  0,  0,  0 ],
     [  0,  0,  0,  0,  0,  0,  0,  0 ], //RANK 1
 ];
 
@@ -144,3 +158,23 @@ fn flatten(arr: [[MyVal; FILE_CNT]; RANK_CNT]) -> [MyVal; SQ_CNT] {
     }
     new_arr
 }
+
+
+/// The score of a MVV_LVA[attacker_piece][captured_piece]
+/// should encourage the lowest attacker value capturing the
+/// highest value capture piece
+///
+/// We sort in ascending order
+///
+/// Any piece capturing a more important piece should be heavily
+/// encouraged, a piece capturing one of same value is ok
+/// and a piece capturing a piece of lower value should be looked
+/// at earlier, but is not as important
+pub const MVV_LVA: [[MyVal; 6]; 6] = [
+    [ -5, -42, -43, -44, -45, -46], //Pawn = 1
+    [ -4,  -5, -32, -33, -34, -35], //Knight = 2
+    [ -1,  -4,  -5, -23, -24, -25], //Bishop = 3
+    [ -1,  -2,  -3,  -5, -14, -15], //Rook = 4
+    [ -1,  -2,  -3,  -4,  -5,  -6], //Queen = 5
+    [  0,   0,   0,   0,   0,   0], //King = 6
+];

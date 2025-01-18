@@ -1,7 +1,9 @@
 
-use pleco::{board::{self, movegen::MoveGen}, core::{score::{DRAW, INFINITE, MATE, NEG_INFINITE}, GenTypes}, tools::{eval, tt::{self, Entry, NodeBound, TranspositionTable}, PreFetchable}, BitMove, Board, ScoringMove};
+use pleco::{core::{mono_traits::{BlackType, PlayerTrait, WhiteType}, score::{DRAW, INFINITE, MATE, NEG_INFINITE}, GenTypes}, tools::{tt::{Entry, NodeBound, TranspositionTable}, PreFetchable}, BitMove, Board, Player, ScoringMove};
 
-use super::{consts::{MyVal, QUEEN_VALUE, STALEMATE}, evaluator::eval_board};
+use crate::processing::consts::MVV_LVA;
+
+use super::{consts::{MyVal, QUEEN_VALUE}, evaluator::eval_board};
 
 const MATE_V: i16 = MATE as i16;
 const DRAW_V: i16 = DRAW as i16;
@@ -118,15 +120,33 @@ fn alpha_beta(
         depth -= 1;
     }
 
-
     all_moves.sort_by_key(|mv| {
-        //Killer moves, if it is the tt_move
+        //Killer moves
         if tt_hit && tt_entry.best_move == *mv {
-            return 0;
+            return -50;
         } else if board.is_capture_or_promotion(*mv) {
-            return 2
+            if board.is_capture(*mv) {
+                let attacker = board.piece_at_sq(mv.get_src());
+                let dest = if mv.is_en_passant() {
+                    if board.turn() == Player::White {
+                        WhiteType::down(mv.get_dest())
+                    } else {
+                        BlackType::down(mv.get_dest())
+                    }
+                } else {
+                    mv.get_dest()
+                };
+                let captured = board.piece_at_sq(dest);
+                assert!(attacker.type_of() as usize != 0 && attacker.type_of() as usize != 7);
+                assert!(captured.type_of() as usize != 0 && captured.type_of() as usize != 7);
+
+                //Returns between -46 and 0
+                return MVV_LVA[attacker.type_of() as usize - 1][captured.type_of() as usize - 1];
+            } else {
+                return -10;
+            }
         } else if board.gives_check(*mv) {
-            return 3
+            return -1
         }
         5
     });

@@ -60,6 +60,10 @@ fn bench_engine_search(c: &mut Criterion) {
         "Search Kiwipete Depth 7", 
         |b| { bench_search_kiwipete(b, 7);},
     );
+    // c.bench_function(
+    //     "Search Kiwipete Depth 8", 
+    //     |b| { bench_search_kiwipete(b, 8);},
+    // );
 }
 
 criterion_group!(name = search_benches;
