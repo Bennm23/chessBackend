@@ -43,7 +43,7 @@
     <!-- - Search Kiwipete Depth 6
         **time:   [1.1400 s 1.1456 s 1.1572 s]** -->
 
-2. Add move ordering
+2. 5478720ee835874d07454db9791cd779331300dd Add move ordering
 
     - Search Default Depth 5
         **time:   [314.49 ms 314.68 ms 314.89 ms]**
@@ -53,3 +53,21 @@
         **time:   [356.81 ms 358.15 ms 360.90 ms]**
     - Search Kiwipete Depth 6
         **time:   [1.3655 s 1.3661 s 1.3671 s]**
+
+3. TBD Add transposition table
+
+    - Search Default Depth 5
+        **time:   [393.80 ms 396.14 ms 397.81 ms]**
+        change: [+25.154% +25.492% +25.927%] (p = 0.00 < 0.05)
+
+    - Search Default Depth 6
+        **time:   [2.1285 s 2.1404 s 2.1493 s]**
+        change: [-29.567% -29.230% -28.860%] (p = 0.00 < 0.05)
+
+    - Search Kiwipete Depth 5
+        **time:   [328.41 ms 328.78 ms 329.54 ms]**
+        change: [-9.6647% -8.8777% -8.2030%] (p = 0.00 < 0.05)
+
+    - Search Kiwipete Depth 6
+        **time:   [1.1320 s 1.1342 s 1.1356 s]**
+        change: [-17.338% -17.197% -17.048%] (p = 0.00 < 0.05)
