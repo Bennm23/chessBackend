@@ -56,7 +56,7 @@ fn score_pawns<P: PlayerTrait>(board: &Board) -> MyVal {
         if count_other < 4 {
             score += PAWN_LATE_POS[P::player() as usize][square.0 as usize];
         } else {
-        score += PAWN_EARLY_POS[P::player() as usize][square.0 as usize];
+            score += PAWN_EARLY_POS[P::player() as usize][square.0 as usize];
         }
         // sqs_defended |= board.magic_helper.pawn_attacks_from(square, P::player());
 

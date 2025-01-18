@@ -126,24 +126,9 @@ fn alpha_beta(
             return -50;
         } else if board.is_capture_or_promotion(*mv) {
             if board.is_capture(*mv) {
-                let attacker = board.piece_at_sq(mv.get_src());
-                let dest = if mv.is_en_passant() {
-                    if board.turn() == Player::White {
-                        WhiteType::down(mv.get_dest())
-                    } else {
-                        BlackType::down(mv.get_dest())
-                    }
-                } else {
-                    mv.get_dest()
-                };
-                let captured = board.piece_at_sq(dest);
-                assert!(attacker.type_of() as usize != 0 && attacker.type_of() as usize != 7);
-                assert!(captured.type_of() as usize != 0 && captured.type_of() as usize != 7);
-
-                //Returns between -46 and 0
-                return MVV_LVA[attacker.type_of() as usize - 1][captured.type_of() as usize - 1];
-            } else {
-                return -10;
+                return get_capture_score(board, mv);
+           } else {
+                return mv.promo_piece() as MyVal * -3;
             }
         } else if board.gives_check(*mv) {
             return -1
@@ -242,7 +227,16 @@ fn quiescence_search(
     let non_quiets = if in_check {
         board.generate_moves_of_type(GenTypes::Evasions)
     } else {
-        board.generate_moves_of_type(GenTypes::Captures)
+        let mut mvs = board.generate_moves_of_type(GenTypes::Captures);
+        mvs.sort_by_key(|mv| {
+            if mv.is_capture() {
+                return get_capture_score(board, mv);
+            } else if mv.is_promo() {
+                return mv.promo_piece() as MyVal * -3;
+            }
+            return 0;
+        });
+        mvs
     };
     let mut moves_played = 0;
 
@@ -284,10 +278,12 @@ fn quiescence_search(
 }
 
 
+#[inline(always)]
 fn mate_in(ply: u8) -> MyVal {
     MATE_V - ply as MyVal
 }
 
+#[inline(always)]
 fn mated_in(ply: u8) -> MyVal {
     -MATE_V + ply as MyVal
 }
@@ -300,6 +296,7 @@ fn mated_in(ply: u8) -> MyVal {
 /// Else if the entry is a lower bound but beta is worse than the tt entry
 ///     we know we have a better option than this so return
 /// Always return exact
+#[inline(always)]
 fn correct_bound_eq(tt_value: MyVal, beta: MyVal, bound: NodeBound) -> bool {
     if tt_value >= beta {
         // bound != NodeBound::UpperBound
@@ -309,6 +306,7 @@ fn correct_bound_eq(tt_value: MyVal, beta: MyVal, bound: NodeBound) -> bool {
     }
 
 }
+#[inline(always)]
 fn correct_bound(tt_value: MyVal, val: MyVal, bound: NodeBound) -> bool {
     if tt_value >= val {
         // bound != NodeBound::UpperBound
@@ -317,4 +315,23 @@ fn correct_bound(tt_value: MyVal, val: MyVal, bound: NodeBound) -> bool {
         bound as u8 & NodeBound::UpperBound as u8 != 0
     }
 
+}
+
+fn get_capture_score(board: &Board, mv: &BitMove) -> MyVal {
+    let attacker = board.piece_at_sq(mv.get_src());
+    let dest = if mv.is_en_passant() {
+        if board.turn() == Player::White {
+            WhiteType::down(mv.get_dest())
+        } else {
+            BlackType::down(mv.get_dest())
+        }
+    } else {
+        mv.get_dest()
+    };
+    let captured = board.piece_at_sq(dest);
+    assert!(attacker.type_of() as usize != 0 && attacker.type_of() as usize != 7);
+    assert!(captured.type_of() as usize != 0 && captured.type_of() as usize != 7);
+
+    //Returns between -46 and 0
+    return MVV_LVA[attacker.type_of() as usize - 1][captured.type_of() as usize - 1];
 }

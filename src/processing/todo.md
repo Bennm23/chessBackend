@@ -91,7 +91,7 @@
     - Search Kiwipete Depth 7
         **time:   [927.48 ms 927.81 ms 928.17 ms]**
 
-6. MVV_LVA Ordering. Beat Jonas (1700) Effective Rating 1800. Added some pawn late game logic to encourage promotion
+6. 2f31660d2cf541e7a9dee721b5fa4002953e686a MVV_LVA Ordering. Beat Jonas (1700) Effective Rating 1800. Added some pawn late game logic to encourage promotion
     - Search Default Depth 5
         **time:   [44.409 ms 44.521 ms 44.667 ms]**
     - Search Default Depth 6
@@ -106,3 +106,19 @@
         **time:   [604.72 ms 606.83 ms 608.36 ms]**
     - Search Kiwipete Depth 8
         **time:   [1.7377 s 1.7434 s 1.7507 s]**
+
+7. TBD Expand MVV_LVA Ordering to quiescence search. Little/Worse impact for start board but decent gains in kiwipete
+    - Search Default Depth 5
+        **time:   [45.962 ms 46.031 ms 46.105 ms]**
+    - Search Default Depth 6
+        **time:   [505.16 ms 506.04 ms 506.91 ms]**
+    - Search Default Depth 7
+        **time:   [2.0937 s 2.0963 s 2.0996 s]**
+    - Search Kiwipete Depth 5
+        **time:   [82.563 ms 82.635 ms 82.755 ms]**
+    - Search Kiwipete Depth 6
+        **time:   [154.24 ms 154.49 ms 154.73 ms]**
+    - Search Kiwipete Depth 7
+        **time:   [553.88 ms 554.17 ms 554.38 ms]**
+    - Search Kiwipete Depth 8
+        **time:   [1.6307 s 1.6405 s 1.6514 s]**
