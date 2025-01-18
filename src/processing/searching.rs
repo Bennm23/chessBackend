@@ -36,7 +36,7 @@ pub fn find_best_move(board: &mut Board, max_ply: u8) -> BitMove {
 
 fn alpha_beta(board: &mut Board, mut alpha: MyVal, beta: MyVal, depth: u8, ply: u8) -> ScoringMove {
 
-    let all_moves = board.generate_moves();
+    let mut all_moves = board.generate_moves();
 
     if all_moves.len() == 0 {
         if board.in_check() {
@@ -48,6 +48,17 @@ fn alpha_beta(board: &mut Board, mut alpha: MyVal, beta: MyVal, depth: u8, ply: 
             return ScoringMove::blank(DRAW_V);
         }
     }
+
+    all_moves.sort_by_key(|mv| {
+        //Killer moves, if it is the tt_move
+        if board.is_capture_or_promotion(*mv) {
+            return 0
+        } else if board.gives_check(*mv) {
+            return 1
+        }
+        2
+    });
+
 
     if depth == 0 {
         //TODO: quiesence search
