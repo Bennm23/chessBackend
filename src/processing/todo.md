@@ -2,23 +2,23 @@
 
 ## Move Optimization
 
-1. Move extensions when depth == 0 and the move leads to check
-2. Queiesence Search
-3. Transposition Table, prefetch?
-4. Optimal mate length
-5. Aspiration Windows
+- Move extensions when depth == 0 and the move leads to check
+- Queiesence Search
+- Optimal mate length
+- Aspiration Windows
+
+- Won't take the damn rook in this position after rook g1 3k2r1/3np3/4Q1B1/3N4/1P1P1P2/4P2P/3B4/4K2R w K - 1 41
 
 ## Evaluation Optimization
 
-1. Compute all shared resources once, enemy pawns my pawns ..
-2. Evaluate initiative
+- Compute all shared resources once, enemy pawns my pawns ..
+- Evaluate initiative
 
 ## Gameplay Needs
 
-1. Fix castling **DONE**
-2. Verify En Passant Computer works
-3. Check stalemate avoidance
-4. Promoting to knights?? Pawn pushing instead of mate. Seems to be minimizing when mate occurs
+- Verify En Passant Computer works
+- Check stalemate avoidance
+- Promoting to knights?? Pawn pushing instead of mate. Seems to be minimizing when mate occurs
 
 ## Performance History
 
@@ -54,7 +54,7 @@
     - Search Kiwipete Depth 6
         **time:   [1.3655 s 1.3661 s 1.3671 s]**
 
-3. TBD Add transposition table
+3. f89c312be1051e8710cae487477e308d7d897435 Add transposition table
 
     - Search Default Depth 5
         **time:   [393.80 ms 396.14 ms 397.81 ms]**
@@ -71,3 +71,21 @@
     - Search Kiwipete Depth 6
         **time:   [1.1320 s 1.1342 s 1.1356 s]**
         change: [-17.338% -17.197% -17.048%] (p = 0.00 < 0.05)
+
+4. TBD Add aspiration window (40)
+
+    - Search Default Depth 5
+        **time:   [375.90 ms 376.38 ms 376.73 ms]**
+        change: [-5.0490% -4.7326% -4.4691%] (p = 0.00 < 0.05)
+
+    - Search Default Depth 6
+        **time:   [337.04 ms 337.21 ms 337.55 ms]**
+        change: [-84.227% -84.156% -84.090%] (p = 0.00 < 0.05)
+
+    - Search Kiwipete Depth 5
+        **time:   [220.82 ms 220.96 ms 221.09 ms]**
+        change: [-33.032% -32.873% -32.738%] (p = 0.00 < 0.05)
+
+    - Search Kiwipete Depth 6
+        **time:   [478.83 ms 479.81 ms 481.50 ms]**
+        change: [-57.749% -57.631% -57.472%] (p = 0.00 < 0.05)

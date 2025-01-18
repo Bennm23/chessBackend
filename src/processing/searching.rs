@@ -21,22 +21,38 @@ pub fn find_best_move(board: &mut Board, max_ply: u8) -> BitMove {
     let mut best_move: ScoringMove = ScoringMove::blank(NEG_INFINITE as i16);
     let tt = TranspositionTable::new_num_entries(TT_ENTRIES);
 
+    let mut score: MyVal = 0;
 
-    for i in 1..=max_ply {
+    'iterative_deepening: for depth in 1..=max_ply {
+
+        let mut window: MyVal = 40;
+
+        'aspiration_window: loop {
+            let alpha = score - window;
+            let beta = score + window;
 
         let best = alpha_beta(
             board,
             alpha, beta,
-            i as i8, 0,
+                depth as i8, 0,
             &tt,
         );
 
+            score = best.score;
+            
         if best.bit_move != NULL_BIT_MOVE {
             best_move = best;
             if best.score >= MATE_V - max_ply as MyVal {
-                println!("Mate Found At Depth = {i}");
-                break;
+                    println!("Mate Found At Depth = {depth}");
+                    break 'iterative_deepening;
             }
+        }
+
+            if alpha < score && score < beta {
+                break 'aspiration_window
+            }
+            window *= 2;
+
         }
     }
     
