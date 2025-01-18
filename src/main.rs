@@ -142,30 +142,45 @@ fn handle_message(id: &MessageID, bytes: &[u8], socket: &mut TcpStream) {
             let request_msg =
                 FindBest::parse_from_bytes(bytes).expect("Could not parse FindBest message");
 
+            println!("-----------");
             println!("Got FEN String = {}", request_msg.fen_string);
             thread::spawn(move || {
                 let start = Instant::now();
                 let mut board = pleco::Board::from_fen(&request_msg.fen_string).expect("Board Fen Create Failed");
 
-
-                let mv = find_best_move(&mut board, 9);
+                let mv = find_best_move(&mut board, 7);
                 // let mv = IterativeSearcher::best_move(board, 7);
 
 
-                println!("Move = {mv}");
 
                 let elapsed = start.elapsed();
 
                 println!("Search Took {} ms", elapsed.as_millis());
 
-                println!("mv Src = {}", mv.get_src_u8());
-                println!("mv dest = {}", mv.get_dest_u8());
                 let from = mv.get_src_u8();
-                let to = mv.get_dest_u8();
+                let mut to = mv.get_dest_u8();
 
                 let mut response = FindBestResponse::new();
                 // //Row position is 0 indexed at white row
                 response.from_pos = MessageField::some(Position::from_cindex(from));
+
+                //Correct castle send
+                let ksq = board.king_sq(board.turn());
+                if from == ksq.0 {
+                    if from == 60 && to == 63 {
+                        to = 62;
+                    } else if from == 60 && to == 56 {
+                        to = 58;
+                    } else if from == 4 && to == 0 {
+                        to = 2;
+                    } else if from == 4 && to == 7 {
+                        to = 6;
+                    }
+                }
+                println!("Best Move = {mv}");
+                println!("mv Src = {}", from);
+                println!("mv dest = {}", to);
+
                 response.end_pos =  MessageField::some(Position::from_cindex(to));
 
                 if mv.is_promo() {
