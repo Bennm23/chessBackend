@@ -43,10 +43,10 @@ fn bench_engine_search(c: &mut Criterion) {
         "Search Default Depth 6", 
         |b| { bench_search_default(b, 6);},
     );
-    // c.bench_function(
-    //     "Search Default Depth 7", 
-    //     |b| { bench_search_default(b, 7);},
-    // );
+    c.bench_function(
+        "Search Default Depth 7", 
+        |b| { bench_search_default(b, 7);},
+    );
 
     c.bench_function(
         "Search Kiwipete Depth 5", 
@@ -56,10 +56,10 @@ fn bench_engine_search(c: &mut Criterion) {
         "Search Kiwipete Depth 6", 
         |b| { bench_search_kiwipete(b, 6);},
     );
-    // c.bench_function(
-    //     "Search Kiwipete Depth 7", 
-    //     |b| { bench_search_kiwipete(b, 7);},
-    // );
+    c.bench_function(
+        "Search Kiwipete Depth 7", 
+        |b| { bench_search_kiwipete(b, 7);},
+    );
 }
 
 criterion_group!(name = search_benches;

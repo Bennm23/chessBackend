@@ -1,7 +1,7 @@
 
-use pleco::{board, core::{score::{DRAW, INFINITE, MATE, NEG_INFINITE}, GenTypes}, tools::{tt::{self, Entry, NodeBound, TranspositionTable}, PreFetchable}, BitMove, Board, ScoringMove};
+use pleco::{board::{self, movegen::MoveGen}, core::{score::{DRAW, INFINITE, MATE, NEG_INFINITE}, GenTypes}, tools::{eval, tt::{self, Entry, NodeBound, TranspositionTable}, PreFetchable}, BitMove, Board, ScoringMove};
 
-use super::{consts::{MyVal, STALEMATE}, evaluator::eval_board};
+use super::{consts::{MyVal, QUEEN_VALUE, STALEMATE}, evaluator::eval_board};
 
 const MATE_V: i16 = MATE as i16;
 const DRAW_V: i16 = DRAW as i16;
@@ -33,22 +33,22 @@ pub fn find_best_move(board: &mut Board, max_ply: u8) -> BitMove {
         }
 
         'aspiration_window: loop {
-        let best = alpha_beta(
-            board,
-            alpha, beta,
+            let best = alpha_beta(
+                board,
+                alpha, beta,
                 depth as i8, 0,
-            &tt,
-        );
+                &tt,
+            );
 
             score = best.score;
             
-        if best.bit_move != NULL_BIT_MOVE {
-            best_move = best;
-            if best.score >= MATE_V - max_ply as MyVal {
-                    println!("Mate Found At Depth = {depth}");
+            if best.bit_move != NULL_BIT_MOVE {
+                best_move = best;
+                if best.score >= MATE_V - max_ply as MyVal {
+                    // println!("Mate Found At Depth = {depth}");
                     break 'iterative_deepening;
+                }
             }
-        }
 
             if score <= alpha {
                 beta = (alpha + beta) / 2;
@@ -70,7 +70,7 @@ pub fn find_best_move(board: &mut Board, max_ply: u8) -> BitMove {
 fn alpha_beta(
     board: &mut Board,
     mut alpha: MyVal, beta: MyVal,
-    depth: i8, ply: u8,
+    mut depth: i8, ply: u8,
     tt: &TranspositionTable,
 
 ) -> ScoringMove {
@@ -88,13 +88,19 @@ fn alpha_beta(
         }
     }
 
+    if depth <= 0 {
+        return ScoringMove::blank(quiescence_search(board, alpha, beta, ply, depth, tt));
+    }
+
     let zobrist = board.zobrist();
     let (tt_hit, tt_entry) : (bool, &mut Entry) = tt.probe(zobrist);
 
+    let mut board_score = eval_board(board);
     // Check for TT Match
     if tt_hit && !tt_entry.best_move.is_null() {
 
-        if tt_entry.depth >= depth && //If This entry was found earlier than the current
+        //If This entry was found earlier than the current
+        if tt_entry.depth >= depth &&
            //And the node is valid given our current beta
            correct_bound_eq(tt_entry.score, beta, tt_entry.node_type())
         {
@@ -103,22 +109,27 @@ fn alpha_beta(
                 score: tt_entry.score,
             };
         }
+    
+        if correct_bound(tt_entry.score, board_score, tt_entry.node_type()) {
+            board_score = tt_entry.score;
+        }
+    } else if depth > 3 {
+        //Internal iterative reduction, will revisit if tt visits again
+        depth -= 1;
     }
+
 
     all_moves.sort_by_key(|mv| {
         //Killer moves, if it is the tt_move
-        if board.is_capture_or_promotion(*mv) {
-            return 0
+        if tt_hit && tt_entry.best_move == *mv {
+            return 0;
+        } else if board.is_capture_or_promotion(*mv) {
+            return 2
         } else if board.gives_check(*mv) {
-            return 1
+            return 3
         }
-        2
+        5
     });
-
-    if depth == 0 {
-        //TODO: quiesence search
-        return ScoringMove::blank(eval_board(board));
-    }
 
     let mut best_move = BitMove::null();
     let mut best_score = NEG_INF_V;
@@ -126,6 +137,8 @@ fn alpha_beta(
     let mut tt_flag = NodeBound::UpperBound;
 
     for mv in &all_moves {
+        tt.prefetch(board.key_after(mv));
+
         board.apply_move(mv);
         let eval = alpha_beta(
             board,
@@ -135,14 +148,12 @@ fn alpha_beta(
         ).negate();
         board.undo_move();
 
-        tt.prefetch(board.zobrist());
-
         if eval.score > best_score {
             best_score = eval.score;
 
-        if eval.score > alpha {
+            if eval.score > alpha {
                 best_move = mv;
-            alpha = eval.score;
+                alpha = eval.score;
                 tt_flag = NodeBound::Exact;
             
                 if eval.score >= beta {
@@ -150,7 +161,6 @@ fn alpha_beta(
                     break;
                 }
             }
-            
         }
     }
 
@@ -158,7 +168,7 @@ fn alpha_beta(
         zobrist, 
         best_move, 
         best_score, 
-        0, 
+        board_score, 
         depth as i16, 
         tt_flag, 
         tt.time_age(),
@@ -168,6 +178,89 @@ fn alpha_beta(
         bit_move: best_move,
         score: alpha,
     };
+}
+
+fn quiescence_search(
+    board: &mut Board,
+    mut alpha: MyVal,
+    beta : MyVal,
+    ply: u8,
+    depth: i8,
+    tt: &TranspositionTable,
+
+) -> MyVal {
+
+    let static_eval = eval_board(board);
+
+    if static_eval >= beta {
+        return beta
+    } 
+
+    if depth == -5 {
+        return static_eval;
+    }
+
+    let mut best = static_eval;
+
+    //Check if we can even improve this position by the largest swing
+    let mut max_swing = alpha as i32 - QUEEN_VALUE as i32;//Evaluate as i32 in case where alpha is mate or uninit
+    if let Some(mv) = board.last_move() {
+        if mv.is_promo() {
+            max_swing -= 750;
+        }
+    }
+    if (best as i32) < max_swing {
+        return alpha;
+    }
+    
+    if static_eval > alpha {
+        alpha = static_eval;
+    }
+
+    let in_check = board.in_check();
+
+    let non_quiets = if in_check {
+        board.generate_moves_of_type(GenTypes::Evasions)
+    } else {
+        board.generate_moves_of_type(GenTypes::Captures)
+    };
+    let mut moves_played = 0;
+
+    for mv in non_quiets {
+
+        tt.prefetch(board.key_after(mv));
+        board.apply_move(mv);
+        let score = -quiescence_search(
+            board,
+            -beta, -alpha,
+            ply + 1,
+            depth - 1,
+            tt
+        );
+        moves_played += 1;
+        board.undo_move();
+
+        if score >= beta {
+            return score;
+        }
+        if score > best {
+            best = score;
+
+            if best > alpha {
+                alpha = best;
+            }
+        }
+    }
+
+    if moves_played == 0 {
+        if in_check {
+            return mated_in(ply);
+        } else {
+            return static_eval;
+        }
+    }
+    
+    best
 }
 
 
@@ -189,6 +282,15 @@ fn mated_in(ply: u8) -> MyVal {
 /// Always return exact
 fn correct_bound_eq(tt_value: MyVal, beta: MyVal, bound: NodeBound) -> bool {
     if tt_value >= beta {
+        // bound != NodeBound::UpperBound
+        bound as u8 & NodeBound::LowerBound as u8 != 0
+    } else {
+        bound as u8 & NodeBound::UpperBound as u8 != 0
+    }
+
+}
+fn correct_bound(tt_value: MyVal, val: MyVal, bound: NodeBound) -> bool {
+    if tt_value >= val {
         // bound != NodeBound::UpperBound
         bound as u8 & NodeBound::LowerBound as u8 != 0
     } else {

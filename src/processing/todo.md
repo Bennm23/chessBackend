@@ -2,10 +2,12 @@
 
 ## Move Optimization
 
-- Move extensions when depth == 0 and the move leads to check
-- Queiesence Search
+- Implement better move ordering
+- MVV/LVA **2**
+- Killer Moves **3**
+- Move extensions when move results in check
+- Queiesence Search I think is in? How about tt
 - Optimal mate length
-- Aspiration Windows
 
 - Won't take the damn rook in this position after rook g1 3k2r1/3np3/4Q1B1/3N4/1P1P1P2/4P2P/3B4/4K2R w K - 1 41
 - Refine aspiration based on position complexity?
@@ -14,6 +16,7 @@
 
 - Compute all shared resources once, enemy pawns my pawns ..
 - Evaluate initiative
+- Improve position evaluation **1**
 
 ## Gameplay Needs
 
@@ -73,7 +76,7 @@
         **time:   [1.1320 s 1.1342 s 1.1356 s]**
         change: [-17.338% -17.197% -17.048%] (p = 0.00 < 0.05)
 
-4. TBD Add aspiration window (20 but dynamic correction after depth 3)
+4. 77687a1bfd2cbec35b7a805907b7d46215a4409e Add aspiration window (20 but dynamic correction after depth 3)
 
     - Search Default Depth 5
         **time:   [343.09 ms 345.62 ms 349.63 ms]**
@@ -90,3 +93,21 @@
     - Search Kiwipete Depth 6
         **time:   [502.18 ms 502.67 ms 503.13 ms]**
         change: [-57.749% -57.631% -57.472%] (p = 0.00 < 0.05)
+
+5. TBD. Add quiescence search, aspiration windows were broken without quiescence. Add tt best move mv prioritization. Effective Rating 1450.
+
+    - Engine Evaluations/Full Evaluation
+        **time:   [707.22 ns 709.75 ns 714.80 ns]**
+    - Search Default Depth 5
+        **time:   [44.374 ms 44.452 ms 44.513 ms]**
+    - Search Default Depth 6
+        **time:   [493.99 ms 498.20 ms 502.93 ms]**
+    - Search Default Depth 7
+        **time:   [2.1191 s 2.1206 s 2.1226 s]**
+
+    - Search Kiwipete Depth 5
+        **time:   [149.23 ms 149.78 ms 151.05 ms]**
+    - Search Kiwipete Depth 6
+        **time:   [247.04 ms 249.20 ms 250.93 ms]**
+    - Search Kiwipete Depth 7
+        **time:   [927.48 ms 927.81 ms 928.17 ms]**
