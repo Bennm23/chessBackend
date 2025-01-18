@@ -25,12 +25,14 @@ pub fn find_best_move(board: &mut Board, max_ply: u8) -> BitMove {
 
     'iterative_deepening: for depth in 1..=max_ply {
 
-        let mut window: MyVal = 40;
+        let mut window: MyVal = 20;
+
+        if depth >= 3 {
+            alpha = NEG_INF_V.max(score - window);
+            beta = INF_V.min(score + window);
+        }
 
         'aspiration_window: loop {
-            let alpha = score - window;
-            let beta = score + window;
-
         let best = alpha_beta(
             board,
             alpha, beta,
@@ -48,10 +50,16 @@ pub fn find_best_move(board: &mut Board, max_ply: u8) -> BitMove {
             }
         }
 
-            if alpha < score && score < beta {
-                break 'aspiration_window
+            if score <= alpha {
+                beta = (alpha + beta) / 2;
+                alpha = (score - window).max(NEG_INF_V);
+            } else if score >= beta {
+                beta = (score + window).min(INF_V);
+            } else {
+                break 'aspiration_window;
             }
-            window *= 2;
+
+            window += (window / 4) + 5;
 
         }
     }

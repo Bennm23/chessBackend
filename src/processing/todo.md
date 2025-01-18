@@ -8,6 +8,7 @@
 - Aspiration Windows
 
 - Won't take the damn rook in this position after rook g1 3k2r1/3np3/4Q1B1/3N4/1P1P1P2/4P2P/3B4/4K2R w K - 1 41
+- Refine aspiration based on position complexity?
 
 ## Evaluation Optimization
 
@@ -72,20 +73,20 @@
         **time:   [1.1320 s 1.1342 s 1.1356 s]**
         change: [-17.338% -17.197% -17.048%] (p = 0.00 < 0.05)
 
-4. TBD Add aspiration window (40)
+4. TBD Add aspiration window (20 but dynamic correction after depth 3)
 
     - Search Default Depth 5
-        **time:   [375.90 ms 376.38 ms 376.73 ms]**
+        **time:   [343.09 ms 345.62 ms 349.63 ms]**
         change: [-5.0490% -4.7326% -4.4691%] (p = 0.00 < 0.05)
 
     - Search Default Depth 6
-        **time:   [337.04 ms 337.21 ms 337.55 ms]**
+        **time:   [308.47 ms 311.19 ms 314.07 ms]**
         change: [-84.227% -84.156% -84.090%] (p = 0.00 < 0.05)
 
     - Search Kiwipete Depth 5
-        **time:   [220.82 ms 220.96 ms 221.09 ms]**
+        **time:   [196.71 ms 197.09 ms 197.59 ms]**
         change: [-33.032% -32.873% -32.738%] (p = 0.00 < 0.05)
 
     - Search Kiwipete Depth 6
-        **time:   [478.83 ms 479.81 ms 481.50 ms]**
+        **time:   [502.18 ms 502.67 ms 503.13 ms]**
         change: [-57.749% -57.631% -57.472%] (p = 0.00 < 0.05)
