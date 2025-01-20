@@ -140,25 +140,19 @@
     - Search Kiwipete Depth 8
         **time:   [1.6307 s 1.6405 s 1.6514 s]**
 
-8. Add searcher class with pawn table and material for eval
+8. New Searcher Class. Beat isla bot, effective rating 1650
 
-Search Default Depth 5  time:   [194.67 ms 196.80 ms 201.48 ms]
-
-Search Default Depth 6  time:   [391.06 ms 394.06 ms 399.22 ms]
-Found 2 outliers among 10 measurements (20.00%)
-  1 (10.00%) high mild
-  1 (10.00%) high severe
-
-Search Default Depth 7  time:   [2.7177 s 2.7260 s 2.7323 s]
-Found 1 outliers among 10 measurements (10.00%)
-  1 (10.00%) high mild
-
-Search Kiwipete Depth 5 time:   [76.831 ms 77.110 ms 77.438 ms]
-Found 1 outliers among 10 measurements (10.00%)
-  1 (10.00%) high mild
-
-Search Kiwipete Depth 6 time:   [210.15 ms 210.37 ms 210.53 ms]
-Found 1 outliers among 10 measurements (10.00%)
-  1 (10.00%) low mild
-
-Search Kiwipete Depth 7 time:   [524.57 ms 525.99 ms 526.61 ms]
+    Engine Evaluations/New Full Evaluation
+        time:   [1.7525 us 1.7541 us 1.7557 us]
+    Search Default Depth 5
+        time:   [136.34 ms 136.93 ms 137.37 ms]
+    Search Default Depth 6
+        time:   [683.09 ms 685.17 ms 686.93 ms]
+    Search Default Depth 7
+        time:   [3.0728 s 3.0790 s 3.0858 s]
+    Search Kiwipete Depth 5
+        time:   [112.99 ms 113.19 ms 113.43 ms]
+    Search Kiwipete Depth 6
+        time:   [211.40 ms 212.75 ms 213.69 ms]
+    Search Kiwipete Depth 7
+        time:   [686.32 ms 689.40 ms 692.36 ms]

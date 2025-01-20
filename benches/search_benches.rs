@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use chess_lib::processing::{eval_board, searching::find_best_move};
+use chess_lib::processing::{debug::{NoTrace, Tracing}, searching::MySearcher};
 use criterion::{black_box, criterion_group, BatchSize, Bencher, Criterion, Fun};
 use pleco::{board, Board};
 
@@ -9,12 +9,12 @@ const KIWIPETE: &str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R 
 fn bench_search_kiwipete(b: &mut Bencher, depth: u8) {
     b.iter_batched(
         || {
-            Board::from_fen(KIWIPETE).expect("KIWIPETE Init Failed")
+            (Board::from_fen(KIWIPETE).expect("KIWIPETE Init Failed"), MySearcher::new(NoTrace::new()))
         },
-        |mut board| {
-            let mov = black_box(find_best_move(&mut board, depth));
+        |(mut board, mut searcher)| {
+            let mov = black_box(searcher.find_best_move(&mut board, depth));
             board.apply_move(mov);
-            black_box(find_best_move(&mut board, depth));
+            black_box(searcher.find_best_move(&mut board, depth));
         },
         BatchSize::PerIteration
     )
@@ -23,12 +23,12 @@ fn bench_search_kiwipete(b: &mut Bencher, depth: u8) {
 fn bench_search_default(b: &mut Bencher, depth: u8) {
     b.iter_batched(
         || {
-            Board::start_pos()
+            (Board::start_pos(), MySearcher::new(NoTrace::new()))
         },
-        |mut board| {
-            let mov = black_box(find_best_move(&mut board, depth));
+        |(mut board, mut searcher)| {
+            let mov = black_box(searcher.find_best_move(&mut board, depth));
             board.apply_move(mov);
-            black_box(find_best_move(&mut board, depth));
+            black_box(searcher.find_best_move(&mut board, depth));
         },
         BatchSize::PerIteration
     )

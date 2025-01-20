@@ -1,17 +1,20 @@
 
 use std::time::Duration;
 
-use chess_lib::processing::eval_board;
+use chess_lib::processing::{evaluation::eval_board, tables::{material::Material, pawn_table::PawnTable}};
 use criterion::{black_box, criterion_group, BatchSize, Bencher, Criterion, Fun};
 use pleco::{board, Board};
 
-
-fn bench_10_eval(b: &mut Bencher, boards: &Vec<Board>) {
+fn bench_10_eval_new(b: &mut Bencher, boards: &Vec<Board>) {
     b.iter_batched(
-        || {}, 
-        |()| {
+        || {
+            let tp: PawnTable = black_box(PawnTable::new());
+            let tm: Material = black_box(Material::new());
+            (tp, tm)
+        },
+        |(mut pawn_table, mut material)| {
             for board in boards.iter() {
-                black_box(eval_board(&board));
+                black_box(eval_board(&board, &mut pawn_table, &mut material));
             }
         }, 
     BatchSize::PerIteration
@@ -24,15 +27,11 @@ fn bench_engine_evaluations(c: &mut Criterion) {
         .map(|b| Board::from_fen(b).unwrap())
         .collect();
 
-    // let pawn_evals = Fun::new("Pawn Evaluations", bench_100_pawn_evals);
-    // let pawn_king_evals = Fun::new("Pawn & King Evaluations", bench_100_pawn_king_evals);
-    // let material_evals = Fun::new("Material Evaluations", bench_100_material_eval);
-    let full_evals = Fun::new("Full Evaluation", bench_10_eval);
+    //time:   [3.9214 us 4.0038 us 4.0838 us]
+    let full_evals_new = Fun::new("New Full Evaluation", bench_10_eval_new);
 
-    // let funcs = vec![pawn_evals, pawn_king_evals, material_evals, full_evals];
-    let funcs = vec![full_evals];
+    let funcs = vec![full_evals_new];
 
-    //time:   [685.59 ns 689.22 ns 691.05 ns]
     c.bench_functions("Engine Evaluations", funcs, boards);
 }
 

@@ -1,6 +1,16 @@
 pub mod searching;
-pub mod evaluator;
 pub mod consts;
+pub mod debug;
 
+pub mod tables;
+pub mod evaluation;
 
-pub use evaluator::eval_board;
+pub mod prelude {
+    // easier exporting
+    pub use super::evaluation;
+    pub use super::tables;
+    pub use super::debug;
+    pub use super::consts;
+    pub use super::searching;
+}
+

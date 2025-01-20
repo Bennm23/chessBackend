@@ -1,12 +1,12 @@
 pub mod generated;
 pub mod processing;
 
+use chess_lib::processing::searching::start_search;
 use generated::chess::{self, FindBest, FindBestResponse, GetValidMoves, Position, ValidMovesResponse};
 use generated::common::MessageID;
 use pleco::bots::{AlphaBetaSearcher, IterativeSearcher};
 use pleco::tools::Searcher;
 use pleco::{Piece, PieceType, SQ};
-use processing::searching::find_best_move;
 use protobuf::EnumOrUnknown;
 use protobuf::{Enum, Message, MessageField};
 use std::str::FromStr;
@@ -148,7 +148,7 @@ fn handle_message(id: &MessageID, bytes: &[u8], socket: &mut TcpStream) {
                 let start = Instant::now();
                 let mut board = pleco::Board::from_fen(&request_msg.fen_string).expect("Board Fen Create Failed");
 
-                let mv = find_best_move(&mut board, 7);
+                let mv = start_search(&mut board, 7);
                 // let mv = IterativeSearcher::best_move(board, 7);
 
 
@@ -177,9 +177,6 @@ fn handle_message(id: &MessageID, bytes: &[u8], socket: &mut TcpStream) {
                         to = 6;
                     }
                 }
-                println!("Best Move = {mv}");
-                println!("mv Src = {}", from);
-                println!("mv dest = {}", to);
 
                 response.end_pos =  MessageField::some(Position::from_cindex(to));
 
@@ -203,9 +200,7 @@ fn handle_message(id: &MessageID, bytes: &[u8], socket: &mut TcpStream) {
                 let mvs = board.generate_moves();
                 let mut proto_moves = Vec::new();
 
-                let piece = board.piece_at_sq(SQ(rc_to_cindex(request_msg.piece_to_move.row, request_msg.piece_to_move.col)));
                 let sq = rc_to_cindex(request_msg.piece_to_move.row, request_msg.piece_to_move.col);
-
                 let ksq = board.king_sq(board.turn());
 
                 for mv in mvs {
@@ -224,7 +219,6 @@ fn handle_message(id: &MessageID, bytes: &[u8], socket: &mut TcpStream) {
                             } else if from == 4 && to == 7 {
                                 to = 6;
                             }
-                            println!("King Move = {from} -> {to}");
                         }
                         let pos = Position::from_cindex(to);
                         proto_moves.push(pos);

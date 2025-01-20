@@ -1,7 +1,49 @@
 use lazy_static::lazy_static;
-use pleco::{core::masks::{FILE_CNT, PLAYER_CNT, RANK_CNT, SQ_CNT}, tools::tt::TranspositionTable, PieceType};
+use pleco::{core::{masks::{FILE_CNT, PLAYER_CNT, RANK_CNT, SQ_CNT}, score::Score}, tools::tt::TranspositionTable, PieceType};
 
 
+// pub const DEFAULT_TT_SIZE: usize = 256;
+// pub const PAWN_TABLE_SIZE: usize = 16384;
+// pub const MATERIAL_TABLE_SIZE: usize = 8192;
+
+// const TT_ALLOC_SIZE: usize = mem::size_of::<TranspositionTable>();
+// const TIMER_ALLOC_SIZE: usize = mem::size_of::<TimeManager>();
+
+// // A object that is the same size as a transposition table
+// type DummyTranspositionTable = [u8; TT_ALLOC_SIZE];
+// type DummyTimeManager = [u8; TIMER_ALLOC_SIZE];
+
+// pub static USE_STDOUT: AtomicBool = AtomicBool::new(true);
+
+// static INITIALIZED: Once = Once::new();
+
+// /// Global Transposition Table
+// static mut TT_TABLE: DummyTranspositionTable = [0; TT_ALLOC_SIZE];
+
+// // Global Timer
+// static mut TIMER: DummyTimeManager = [0; TIMER_ALLOC_SIZE];
+
+// #[cold]
+// pub fn init_globals() {
+//     INITIALIZED.call_once(|| {
+//         prelude::init_statics(); // Initialize static tables
+//         compiler_fence(Ordering::SeqCst);
+//         init_tt(); // Transposition Table
+//         init_timer(); // Global timer manager
+//         pawn_table::init();
+//         threadpool::init_threadpool(); // Make Threadpool
+//         search::init();
+//     });
+// }
+
+// // Initializes the transposition table
+// #[cold]
+// fn init_tt() {
+//     unsafe {
+//         let tt = &mut TT_TABLE as *mut DummyTranspositionTable as *mut TranspositionTable;
+//         ptr::write(tt, TranspositionTable::new(DEFAULT_TT_SIZE));
+//     }
+// }
 
 pub type MyVal = i16;
 
@@ -39,7 +81,184 @@ pub const ROOK_VALUE: MyVal = 500;
 pub const QUEEN_VALUE: MyVal = 800;
 pub const KING_VALUE: MyVal = 1500;
 
+pub const PAWN_UNIT: MyVal = 100;
 
+pub type EvalVal = i32;
+// pub const PAWN_MG: EvalVal = 171;
+// pub const KNIGHT_MG: EvalVal = 764;
+// pub const BISHOP_MG: EvalVal = 826;
+// pub const ROOK_MG: EvalVal = 1282;
+// pub const QUEEN_MG: EvalVal = 2526;
+
+// pub const PAWN_EG: EvalVal = 240;
+// pub const KNIGHT_EG: EvalVal = 848;
+// pub const BISHOP_EG: EvalVal = 891;
+// pub const ROOK_EG: EvalVal = 1373;
+// pub const QUEEN_EG: EvalVal = 2646;
+pub const PAWN_MG:   EvalVal = 100;
+pub const KNIGHT_MG: EvalVal = 325;
+pub const BISHOP_MG: EvalVal = 325;
+pub const ROOK_MG:   EvalVal = 500;
+pub const QUEEN_MG:  EvalVal = 1000;
+
+pub const PAWN_EG:   EvalVal = 125;
+pub const KNIGHT_EG: EvalVal = 400;
+pub const BISHOP_EG: EvalVal = 450;
+pub const ROOK_EG:   EvalVal = 650;
+pub const QUEEN_EG:  EvalVal = 1300;
+
+pub const MAX_PHASE: EvalVal = 128;
+
+pub const DEFENDED_PIECE_BONUS: Score = Score(100, 100);
+pub const CONTESTED_PIECE_BONUS: Score = Score(50, 50);
+pub const ATTACKED_PIECE_PENALTY: Score = Score(150, 150);
+
+pub const SOLID_DEFENDER_BONUS: Score = Score(100, 100);
+pub const EQUAL_DEFENDER_BONUS: Score = Score(50, 50);
+pub const DEFENDER_DIFF_SCORE: Score = Score(30, 30);
+
+pub const MOBILITY_BONUS: [[Score; 32]; 8] = [
+    [Score::ZERO; 32], // No Piece
+    [Score::ZERO; 32], // Pawns (100 - 125)
+    [
+        Score(-30, -35), //10% 9%
+        Score(-20, -25),
+        Score(-5, -15),
+        Score(-1, -5),
+        Score(3, 2),
+        Score(6, 6), // Knights (325 - 400)
+        Score(10, 11),
+        Score(14, 15),
+        Score(18, 20), //5% 4%
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+    ],
+    [
+        Score(-20, -30), // (5.8%, 6.6%)
+        Score(-15, -20),
+        Score(5, -5),
+        Score(10, 5),
+        Score(14, 10),
+        Score(18, 20), // Bishops (325 - 450)
+        Score(22, 22),
+        Score(24, 24),
+        Score(26, 30),
+        Score(32, 33),
+        Score(34, 40),
+        Score(35, 43),
+        Score(37, 47),
+        Score(40, 50), //12% 11%
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+    ],
+    [
+        Score(-23, -36),
+        Score(-10, -9),
+        Score(-7, 13),
+        Score(-3, 25),
+        Score(-1, 33),
+        Score(0, 38), // Rooks (500 - 650)
+        Score(4, 52),
+        Score(6, 56),
+        Score(13, 62),
+        Score(15, 68),
+        Score(18, 73),
+        Score(20, 78),
+        Score(22, 78),
+        Score(24, 80),
+        Score(28, 85),
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+    ],
+    [
+        Score(-16, -18),
+        Score(-8, -7),
+        Score(1, 4),
+        Score(1, 9),
+        Score(4, 17),
+        Score(6, 27), // Queens (1000 - 1300)
+        Score(8, 30),
+        Score(8, 36),
+        Score(8, 39),
+        Score(10, 46),
+        Score(10, 47),
+        Score(10, 52),
+        Score(10, 56),
+        Score(12, 60),
+        Score(12, 61),
+        Score(14, 63),
+        Score(14, 66),
+        Score(15, 68),
+        Score(16, 70),
+        Score(17, 71),
+        Score(18, 74),
+        Score(19, 83),
+        Score(20, 85),
+        Score(21, 87),
+        Score(22, 92),
+        Score(25, 95),
+        Score(28, 103),
+        Score(31, 106),
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+        Score::ZERO,
+    ],
+    [Score::ZERO; 32], // King
+    [Score::ZERO; 32], // All piece
+];
 
 lazy_static! {
     pub static ref PAWN_EARLY_POS: [[MyVal; SQ_CNT]; PLAYER_CNT] = [
