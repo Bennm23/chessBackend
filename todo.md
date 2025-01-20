@@ -2,8 +2,17 @@
 
 ## Move Optimization
 
+- Go back to the basics. Remove all the nonesense I have for evaluation, revert random search changes.
+    Add module for evaluation, in mod rs have evaluate. then have different files for different kinds
+- Commit after ^ clean up chess directory
+- Add timer for search
+- Add root move search. After each depth, search the moves sorted by previous depth order
+- Add killer moves
+
+---------------------
+
 - Implement better move ordering
-- Killer Moves **3**
+- Killer Moves **2**
 - Move extensions when move results in check
 - Queiesence Search I think is in? How about tt
 - Optimal mate length
@@ -11,18 +20,26 @@
 - Won't take the damn rook in this position after rook g1 3k2r1/3np3/4Q1B1/3N4/1P1P1P2/4P2P/3B4/4K2R w K - 1 41
 - Refine aspiration based on position complexity?
 
+- Add Debugger to Search, print out each depth best move and best move sequence
+- Add search root function that remembers the best order of root moves as the search deepens, then uses
+    the previous sort order eval
+
 ## Evaluation Optimization
 
 - Compute all shared resources once, enemy pawns my pawns ..
 - Evaluate initiative
 - Improve position evaluation **1**
-- Encourage pawn promotion more ? Thought I was but sometimes no luck
+- Encourage pawn promotion more ? Thought I was but sometimes no luck. Promotion very akward
 
 ## Gameplay Needs
 
 - Verify En Passant Computer works
+- add turn timer **1**
 - Check stalemate avoidance
 - Promoting to knights?? Pawn pushing instead of mate. Seems to be minimizing when mate occurs
+- DRAW AVOIDANCE WITH THIS POSITION
+    2r3k1/4n2p/Q3R1p1/8/3BB3/5P2/P1Pq1KPP/7R w - - 5 33
+- Need half move count? Or something threefold repetition
 
 ## Performance History
 
@@ -107,7 +124,7 @@
     - Search Kiwipete Depth 8
         **time:   [1.7377 s 1.7434 s 1.7507 s]**
 
-7. TBD Expand MVV_LVA Ordering to quiescence search. Little/Worse impact for start board but decent gains in kiwipete
+7. 169c4ffa4a2007cf3aed356cc87c01638d1388e3 Expand MVV_LVA Ordering to quiescence search. Little/Worse impact for start board but decent gains in kiwipete
     - Search Default Depth 5
         **time:   [45.962 ms 46.031 ms 46.105 ms]**
     - Search Default Depth 6
@@ -122,3 +139,26 @@
         **time:   [553.88 ms 554.17 ms 554.38 ms]**
     - Search Kiwipete Depth 8
         **time:   [1.6307 s 1.6405 s 1.6514 s]**
+
+8. Add searcher class with pawn table and material for eval
+
+Search Default Depth 5  time:   [194.67 ms 196.80 ms 201.48 ms]
+
+Search Default Depth 6  time:   [391.06 ms 394.06 ms 399.22 ms]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) high mild
+  1 (10.00%) high severe
+
+Search Default Depth 7  time:   [2.7177 s 2.7260 s 2.7323 s]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+
+Search Kiwipete Depth 5 time:   [76.831 ms 77.110 ms 77.438 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+
+Search Kiwipete Depth 6 time:   [210.15 ms 210.37 ms 210.53 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) low mild
+
+Search Kiwipete Depth 7 time:   [524.57 ms 525.99 ms 526.61 ms]
