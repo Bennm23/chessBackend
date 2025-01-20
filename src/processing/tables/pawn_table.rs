@@ -28,6 +28,7 @@ const BACKWARDS: Score = Score(24, 12);
 const DOUBLED: Score = Score(18, 28);
 
 // Lever bonus by rank
+#[allow(unused)]
 const LEVER: [Score; RANK_CNT] = [
     Score(0, 0),
     Score(0, 0),
@@ -113,6 +114,7 @@ pub fn init() {
     }
 }
 
+#[allow(unused)]
 fn init_connected() -> [[[[Score; 2]; 2]; 3]; RANK_CNT] {
     let seed: [i32; 8] = [0, 13, 24, 18, 76, 100, 175, 330];
     let mut a: [[[[Score; 2]; 2]; 3]; 8] = [[[[Score(0, 0); 2]; 2]; 3]; 8];

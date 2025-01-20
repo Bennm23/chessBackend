@@ -7,7 +7,7 @@ use super::{NumStatCube, StatBoard};
 /// ButterflyBoards are 2 tables (one for each color) indexed by the move's from
 /// and to squares, see chessprogramming.wikispaces.com/Butterfly+Boards
 pub struct ButterflyHistory {
-    a: [[i16; (SQ_CNT * SQ_CNT)]; PLAYER_CNT],
+    a: [[i16; SQ_CNT * SQ_CNT]; PLAYER_CNT],
 }
 
 // [Us][Move], Or rather [Us][To SQ][From SQ]

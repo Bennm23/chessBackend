@@ -2,7 +2,7 @@ use std::{fmt::Display, time::Duration};
 
 use pleco::{core::score::Score, BitMove, Player};
 
-use super::{consts::{EvalVal, MyVal, PAWN_EG, PAWN_MG}, searching::MAX_PLY};
+use super::consts::{MyVal, PAWN_EG, PAWN_MG};
 
 #[repr(u8)]
 #[derive(Copy, Clone)]

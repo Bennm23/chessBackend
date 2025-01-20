@@ -1,5 +1,5 @@
 use lazy_static::lazy_static;
-use pleco::{core::{masks::{FILE_CNT, PLAYER_CNT, RANK_CNT, SQ_CNT}, score::Score}, tools::tt::TranspositionTable, PieceType};
+use pleco::core::{masks::{FILE_CNT, PLAYER_CNT, RANK_CNT, SQ_CNT}, score::Score};
 
 
 // pub const DEFAULT_TT_SIZE: usize = 256;

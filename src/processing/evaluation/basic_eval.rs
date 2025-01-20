@@ -2,7 +2,7 @@
 use pleco::{core::{mono_traits::{BlackType, PlayerTrait, WhiteType}, score::Score}, Board, PieceType, Player, SQ};
 
 
-use crate::processing::{consts::{EvalVal, MyVal, BISHOP_EG, BISHOP_MG, KNIGHT_EG, KNIGHT_MG, MAX_PHASE, MOBILITY_BONUS, PAWN_EG, PAWN_MG, QUEEN_EG, QUEEN_MG, ROOK_EG, ROOK_MG}, debug::{score_str, EvalDebugger, EvalPasses, Tracing}, tables::{material::{Material, MaterialEntry}, pawn_table::{PawnEntry, PawnTable}}};
+use crate::processing::{consts::{EvalVal, MyVal, BISHOP_EG, BISHOP_MG, KNIGHT_EG, KNIGHT_MG, MAX_PHASE, MOBILITY_BONUS, PAWN_EG, PAWN_MG, QUEEN_EG, QUEEN_MG, ROOK_EG, ROOK_MG}, debug::{EvalDebugger, EvalPasses, Tracing}, tables::{material::Material, pawn_table::PawnTable}};
 
 
 fn phase(board: &Board) -> EvalVal {
@@ -26,8 +26,8 @@ impl <'a, T: Tracing<EvalDebugger>> BasicEvaluator <'a, T> {
     pub fn new(
         board: &'a Board,
         trace: T, 
-        pawn_table: &'a mut PawnTable,
-        material: &'a mut Material,
+        _pawn_table: &'a mut PawnTable,
+        _material: &'a mut Material,
     ) -> Self {
         // let pawn_entry = { pawn_table.probe(&board) };
         // let material_entry = { material.probe(&board) };
@@ -51,6 +51,7 @@ impl <'a, T: Tracing<EvalDebugger>> BasicEvaluator <'a, T> {
         }
     }
 
+    #[allow(unused)]
     pub fn debug_piece_locations(&self) {
         for p in 0..2 {
             println!("-----------");
@@ -224,6 +225,7 @@ impl <'a, T: Tracing<EvalDebugger>> BasicEvaluator <'a, T> {
     }
 
     #[inline(always)]
+    #[allow(unused)]
     fn get_piece_val_on_sq(&self, sq: SQ, player: Player) -> Score {
         self.get_raw_piece_val(self.get_piece_on_sq(sq, player))
     }
@@ -231,10 +233,12 @@ impl <'a, T: Tracing<EvalDebugger>> BasicEvaluator <'a, T> {
 }
 
 #[inline(always)]
+#[allow(unused)]
 fn score_magnitude(s: &Score) -> EvalVal {
     s.mg() + s.eg()
 }
 #[inline(always)]
+#[allow(unused)]
 fn div_score(a: Score, b: Score) -> Score {
     Score(a.mg() / b.mg().max(1), a.eg() / b.eg().max(1))
 }
@@ -243,6 +247,7 @@ fn div_u8(a: Score, b: u8) -> Score {
     Score(a.mg() / b as EvalVal, a.eg() / b as EvalVal)
 }
 #[inline(always)]
+#[allow(unused)]
 fn count_pieces<P: PlayerTrait>(board: &Board, ptype: PieceType) -> MyVal {
     board.count_piece(P::player(), ptype) as MyVal
 }

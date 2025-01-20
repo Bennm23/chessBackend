@@ -2,14 +2,11 @@ pub mod generated;
 pub mod processing;
 
 use chess_lib::processing::searching::start_search;
-use generated::chess::{self, FindBest, FindBestResponse, GetValidMoves, Position, ValidMovesResponse};
+use generated::chess::{FindBest, FindBestResponse, GetValidMoves, Position, ValidMovesResponse};
 use generated::common::MessageID;
-use pleco::bots::{AlphaBetaSearcher, IterativeSearcher};
-use pleco::tools::Searcher;
-use pleco::{Piece, PieceType, SQ};
+use pleco::PieceType;
 use protobuf::EnumOrUnknown;
 use protobuf::{Enum, Message, MessageField};
-use std::str::FromStr;
 use std::time::Instant;
 use std::{
     io::{Read, Write},
@@ -79,10 +76,12 @@ fn read_from_socket(socket: &mut TcpStream) {
 fn send(stream: &mut TcpStream, bytes: &[u8]) {
     let _res = stream.write(bytes).expect("Stream Write Failed");
 }
+#[allow(unused)]
 fn send_failed_ack(stream: &mut TcpStream) {
     let res = i32::to_be_bytes(-1);
     send(stream, &res);
 }
+#[allow(unused)]
 fn send_success_ack(stream: &mut TcpStream) {
     let res = i32::to_be_bytes(1);
     send(stream, &res);
@@ -90,7 +89,6 @@ fn send_success_ack(stream: &mut TcpStream) {
 
 pub static SEARCH_DEPTH: i8 = 7;
 pub static LATE_SEARCH_DEPTH: i8 = 9;
-const NUM_THREADS: usize = 4;
 
 impl Position {
     pub fn from_grid(col: i32, row: i32) -> Position {
@@ -250,12 +248,5 @@ pub fn send_proto_msg(socket: &mut TcpStream, msg: &impl Message, msg_id: &Messa
         Err(_) => {
             println!("Failed to send proto message!");
         }
-    }
-}
-
-
-pub mod tester {
-    fn add(a: i32, b: i32) {
-
     }
 }

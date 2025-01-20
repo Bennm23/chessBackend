@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use chess_lib::processing::{debug::{NoTrace, Tracing}, searching::MySearcher};
-use criterion::{black_box, criterion_group, BatchSize, Bencher, Criterion, Fun};
-use pleco::{board, Board};
+use criterion::{black_box, criterion_group, BatchSize, Bencher, Criterion};
+use pleco::Board;
 
 const KIWIPETE: &str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -";
 

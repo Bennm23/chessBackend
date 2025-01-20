@@ -1,5 +1,5 @@
 use basic_eval::BasicEvaluator;
-use pleco::{board, Board, Player};
+use pleco::{Board, Player};
 
 use super::{consts::EvalVal, debug::{NoTrace, Trace, Tracing}, tables::{material::Material, pawn_table::PawnTable}};
 

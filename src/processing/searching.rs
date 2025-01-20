@@ -1,11 +1,11 @@
 
 use std::time::{Duration, Instant};
 
-use pleco::{core::{mono_traits::{BlackType, PlayerTrait, WhiteType}, score::{DRAW, INFINITE, MATE, NEG_INFINITE}, GenTypes}, tools::{tt::{Entry, NodeBound, TranspositionTable}, PreFetchable}, BitMove, Board, Player, Rank, ScoringMove};
+use pleco::{core::{mono_traits::{BlackType, PlayerTrait, WhiteType}, score::{DRAW, INFINITE, MATE, NEG_INFINITE}, GenTypes}, tools::{tt::{Entry, NodeBound, TranspositionTable}, PreFetchable}, BitMove, Board, Player, ScoringMove};
 
 use crate::processing::{consts::MVV_LVA, evaluation::trace_eval};
 
-use super::{consts::{EvalVal, MyVal, QUEEN_VALUE}, debug::{NoTrace, SearchDebugger, Trace, Tracing}, evaluation::eval_board, tables::{material::Material, pawn_table::PawnTable}};
+use super::{consts::{EvalVal, MyVal, QUEEN_VALUE}, debug::{SearchDebugger, Trace, Tracing}, evaluation::eval_board, tables::{material::Material, pawn_table::PawnTable}};
 
 const MATE_V: i16 = MATE as i16;
 const DRAW_V: i16 = DRAW as i16;
@@ -451,7 +451,7 @@ fn get_capture_score(board: &Board, mv: &BitMove) -> MyVal {
 mod tests {
     use pleco::Board;
 
-    use crate::processing::debug::{SearchDebugger, Trace, Tracing};
+    use crate::processing::debug::{Trace, Tracing};
 
     use super::MySearcher;
 
