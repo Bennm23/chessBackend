@@ -174,37 +174,31 @@ impl <'a, T: Tracing<EvalDebugger>> BasicEvaluator <'a, T> {
     ) -> Score {
 
         let mut score = Score::ZERO;
-
         let player = P::player();
 
         //Each raw score is the value of that piece relative to the game phase.
         //So a rook with only 20 pieces left is worth more like 560 then 500
         let pawn_score = 
-            // div_u8(self.get_raw_piece_val(PieceType::N), MAX_PHASE as u8) *
             self.get_raw_piece_val(PieceType::P) *
             self.board.count_piece(player, PieceType::P);
         score += pawn_score;
 
         let knight_score = 
-            // div_u8(self.get_raw_piece_val(PieceType::N), MAX_PHASE as u8) *
             self.get_raw_piece_val(PieceType::N) *
             self.board.count_piece(player, PieceType::N);
         score += knight_score;
 
         let bishop_score = 
-            // div_u8(self.get_raw_piece_val(PieceType::B), MAX_PHASE as u8) *
             self.get_raw_piece_val(PieceType::B) *
             self.board.count_piece(player, PieceType::B);
         score += bishop_score;
 
         let rook_score = 
-            // div_u8(self.get_raw_piece_val(PieceType::R), MAX_PHASE as u8) *
             self.get_raw_piece_val(PieceType::R) *
             self.board.count_piece(player, PieceType::R);
         score += rook_score;
 
         let queen_score = 
-            // div_u8(self.get_raw_piece_val(PieceType::Q), MAX_PHASE as u8) *
             self.get_raw_piece_val(PieceType::Q) *
             self.board.count_piece(player, PieceType::Q);
         score += queen_score;

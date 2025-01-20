@@ -2,11 +2,7 @@
 
 ## Move Optimization
 
-- Go back to the basics. Remove all the nonesense I have for evaluation, revert random search changes.
-    Add module for evaluation, in mod rs have evaluate. then have different files for different kinds
-- Commit after ^ clean up chess directory
-- Add timer for search
-- Add root move search. After each depth, search the moves sorted by previous depth order
+- Add root move search. After each depth, search the moves sorted by previous depth order. When timer expires, still use current value?
 - Add killer moves
 
 ---------------------
@@ -40,6 +36,9 @@
 - DRAW AVOIDANCE WITH THIS POSITION
     2r3k1/4n2p/Q3R1p1/8/3BB3/5P2/P1Pq1KPP/7R w - - 5 33
 - Need half move count? Or something threefold repetition
+
+- In this position we sacrificed the rook instead of moving to f2. May be related to fastest mate.
+    5R2/8/p3k2P/2p5/8/P7/2P1K3/8 b - - 0 54
 
 ## Performance History
 

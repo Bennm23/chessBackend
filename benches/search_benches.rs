@@ -9,7 +9,7 @@ const KIWIPETE: &str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R 
 fn bench_search_kiwipete(b: &mut Bencher, depth: u8) {
     b.iter_batched(
         || {
-            (Board::from_fen(KIWIPETE).expect("KIWIPETE Init Failed"), MySearcher::new(NoTrace::new()))
+            (Board::from_fen(KIWIPETE).expect("KIWIPETE Init Failed"), MySearcher::new(NoTrace::new(), None))
         },
         |(mut board, mut searcher)| {
             let mov = black_box(searcher.find_best_move(&mut board, depth));
@@ -23,7 +23,7 @@ fn bench_search_kiwipete(b: &mut Bencher, depth: u8) {
 fn bench_search_default(b: &mut Bencher, depth: u8) {
     b.iter_batched(
         || {
-            (Board::start_pos(), MySearcher::new(NoTrace::new()))
+            (Board::start_pos(), MySearcher::new(NoTrace::new(), None))
         },
         |(mut board, mut searcher)| {
             let mov = black_box(searcher.find_best_move(&mut board, depth));

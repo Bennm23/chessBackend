@@ -11,6 +11,7 @@ const MATE_V: i16 = MATE as i16;
 const DRAW_V: i16 = DRAW as i16;
 const NEG_INF_V: i16 = NEG_INFINITE as i16;
 const INF_V: i16 = INFINITE as i16;
+const UNREACHABLE_V: MyVal = MATE_V + 100;
 
 const NULL_BIT_MOVE: BitMove = BitMove::null();
 
@@ -23,7 +24,7 @@ pub struct MySearcher<T: Tracing<SearchDebugger>> {
     material: Material,
     best_root_move: BitMove,
     start_time: Instant,
-
+    time_limit_ms: Option<u128>,
 
     //Debug
     tracer: T,
@@ -35,12 +36,13 @@ pub const NULL_SCORE: ScoringMove = ScoringMove::null();
 impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
 
 
-    pub fn new(tracer: T) -> Self {
+    pub fn new(tracer: T, time_limit: Option<u128>) -> Self {
         Self {
             pawn_table: PawnTable::new(),
             material: Material::new(),
             best_root_move: BitMove::null(),
             start_time: Instant::now(),
+            time_limit_ms: time_limit,
 
             tracer,
             nodes_explored: 0,
@@ -53,6 +55,7 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
             material: Material::new(),
             best_root_move: BitMove::null(),
             start_time: Instant::now(),
+            time_limit_ms: None,
 
             tracer,
             nodes_explored: 0,
@@ -69,9 +72,20 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
         }
         res as MyVal
     }
+
+    #[inline(always)]
     pub fn elapsed(&mut self) -> Duration {
         self.start_time.elapsed()
     }
+    #[inline(always)]
+    pub fn time_up(&mut self) -> bool {
+        if let Some(limit) = self.time_limit_ms {
+            self.start_time.elapsed().as_millis() > limit
+        } else {
+            false
+        }
+    }
+
     pub fn find_best_move(&mut self, board: &mut Board, max_ply: u8) -> BitMove {
 
         self.start_time = Instant::now();
@@ -100,6 +114,11 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
                     depth as i8, 0,
                     &tt,
                 );
+
+                if self.time_up() {
+                    println!("Out of time, exiting at depth = {depth}");
+                    break 'iterative_deepening;
+                }
 
                 score = best.score;
                 
@@ -145,10 +164,9 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
             dbg.add_duration(self.start_time.elapsed());
             println!("{dbg}");
 
-            board.apply_move(best_move.bit_move);
             let eval = trace_eval(board);
-            println!("Raw Eval After Move = {eval}");
-            board.undo_move();
+            println!("Raw Eval Before Move = {eval}");
+            println!("AB Eval = {}", best_move.score);
         }
 
         best_move.bit_move
@@ -178,6 +196,9 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
 
         if depth <= 0 {
             return ScoringMove::blank(self.quiescence_search(board, alpha, beta, ply, depth, tt));
+        } else if depth > 1 && self.time_up() {
+            //Allow the search to finish when we are deep enough
+            return ScoringMove::new_score(NULL_BIT_MOVE, UNREACHABLE_V);
         }
 
         let zobrist = board.zobrist();
@@ -382,10 +403,10 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
 
 }
 
-pub fn start_search(board: &mut Board, max_ply: u8) -> BitMove {
-    let mut searcher = MySearcher::new(Trace::new());
+pub fn start_search(board: &mut Board) -> BitMove {
+    let mut searcher = MySearcher::new(Trace::new(), Some(1000));
 
-    searcher.find_best_move(board, max_ply)
+    searcher.find_best_move(board, MAX_PLY as u8)
 }
 
 #[inline(always)]

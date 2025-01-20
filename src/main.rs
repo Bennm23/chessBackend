@@ -146,7 +146,7 @@ fn handle_message(id: &MessageID, bytes: &[u8], socket: &mut TcpStream) {
                 let start = Instant::now();
                 let mut board = pleco::Board::from_fen(&request_msg.fen_string).expect("Board Fen Create Failed");
 
-                let mv = start_search(&mut board, 7);
+                let mv = start_search(&mut board);
                 // let mv = IterativeSearcher::best_move(board, 7);
 
 
