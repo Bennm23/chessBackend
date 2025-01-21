@@ -2,8 +2,14 @@
 
 ## Move Optimization
 
-- Add root move search. After each depth, search the moves sorted by previous depth order. When timer expires, still use current value?
+<!-- - Add root move search. After each depth, search the moves sorted by previous depth order. When timer expires, still use current value? This doesn't work it is slower -->
+- test fail soft v hard
+- why does sorting the root take so much longer?
+
 - Add killer moves
+- Add unit tests for search
+- improve evaluation and add tests
+- expand quiescence and use tt for it, investigate cap at 5
 
 ---------------------
 
@@ -11,7 +17,7 @@
 - Killer Moves **2**
 - Move extensions when move results in check
 - Queiesence Search I think is in? How about tt
-- Optimal mate length
+- Optimal mate length, test for it
 
 - Won't take the damn rook in this position after rook g1 3k2r1/3np3/4Q1B1/3N4/1P1P1P2/4P2P/3B4/4K2R w K - 1 41
 - Refine aspiration based on position complexity?
@@ -35,6 +41,7 @@
 - Promoting to knights?? Pawn pushing instead of mate. Seems to be minimizing when mate occurs
 - DRAW AVOIDANCE WITH THIS POSITION
     2r3k1/4n2p/Q3R1p1/8/3BB3/5P2/P1Pq1KPP/7R w - - 5 33
+    Also search test #3 is a move where we can either win or forced draw
 - Need half move count? Or something threefold repetition
 
 - In this position we sacrificed the rook instead of moving to f2. May be related to fastest mate.
@@ -155,3 +162,34 @@
         time:   [211.40 ms 212.75 ms 213.69 ms]
     Search Kiwipete Depth 7
         time:   [686.32 ms 689.40 ms 692.36 ms]
+
+9. Add search timer. Beat lorenzo bot, effective rating 1800
+    Same times as above
+
+10. add root move ordering
+
+    Search Default Depth 5  time:   [189.32 ms 189.47 ms 189.66 ms]
+    Search Default Depth 6  time:   [750.00 ms 753.42 ms 758.06 ms]
+    Search Default Depth 7  time:   [4.8521 s 4.8616 s 4.8675 s]
+    Search Kiwipete Depth 5 time:   [209.98 ms 210.54 ms 211.62 ms]
+    Search Kiwipete Depth 6 time:   [346.70 ms 347.32 ms 348.53 ms]
+    Search Kiwipete Depth 7 time:   [1.0153 s 1.0188 s 1.0216 s]
+
+11. TBD: Remove root move ordering, change to soft cutoff prune(don't think it changed anything) And added evaluation tests. **Beat Fatima Bot (2000) with effective rating 2250**
+
+    - Engine Evaluations/New Full Evaluation
+        **time:   [1.8559 us 1.8789 us 1.9116 us]**
+    - Search Default Depth 5
+        **time:   [136.28 ms 136.39 ms 136.49 ms]**
+    - Search Default Depth 6
+        **time:   [672.12 ms 673.80 ms 675.60 ms]**
+    - Search Default Depth 7
+        **time:   [3.0204 s 3.0232 s 3.0270 s]**
+    - Search Kiwipete Depth 5
+        **time:   [116.35 ms 117.30 ms 118.48 ms]**
+    - Search Kiwipete Depth 6
+        **time:   [187.42 ms 187.66 ms 188.17 ms]**
+    - Search Kiwipete Depth 7
+        **time:   [626.75 ms 628.90 ms 633.65 ms]**
+    - Search Kiwipete Depth 8
+        **time:   [2.2806 s 2.2901 s 2.2994 s]**

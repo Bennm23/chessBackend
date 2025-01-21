@@ -22,7 +22,6 @@ pub const MAX_PLY: usize = 31;
 pub struct MySearcher<T: Tracing<SearchDebugger>> {
     pawn_table: PawnTable,
     material: Material,
-    best_root_move: BitMove,
     start_time: Instant,
     time_limit_ms: Option<u128>,
 
@@ -40,7 +39,6 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
         Self {
             pawn_table: PawnTable::new(),
             material: Material::new(),
-            best_root_move: BitMove::null(),
             start_time: Instant::now(),
             time_limit_ms: time_limit,
 
@@ -53,7 +51,6 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
         Self {
             pawn_table: PawnTable::new(),
             material: Material::new(),
-            best_root_move: BitMove::null(),
             start_time: Instant::now(),
             time_limit_ms: None,
 
@@ -95,9 +92,11 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
 
         let mut best_move: ScoringMove = ScoringMove::blank(NEG_INF_V);
         let tt = TranspositionTable::new_num_entries(TT_ENTRIES);
+        tt.new_search();
 
         let mut score: MyVal = 0;
 
+        let mut reached_depth = 1;
         'iterative_deepening: for depth in 1..=max_ply {
 
             let mut window: MyVal = 20;
@@ -119,6 +118,8 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
                     println!("Out of time, exiting at depth = {depth}");
                     break 'iterative_deepening;
                 }
+
+                reached_depth = depth;
 
                 score = best.score;
                 
@@ -165,8 +166,12 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
             println!("{dbg}");
 
             let eval = trace_eval(board);
+            println!("TT Percent = {}", tt.hash_percent());
             println!("Raw Eval Before Move = {eval}");
             println!("AB Eval = {}", best_move.score);
+            if best_move.score >= MATE_V - max_ply as MyVal {
+                println!("Mate Found At Depth = {reached_depth}");
+            }
         }
 
         best_move.bit_move
@@ -233,15 +238,12 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
 
         all_moves.sort_by_key(|mv| {
             //TODO: Killer moves. Maybe revisit below once eval is better?
-            // if ply == 0 && self.best_root_move != BitMove::null() && self.best_root_move == *mv {
-            //     return -100
-            // } else 
             if tt_hit && tt_entry.best_move == *mv {
                 return -50;
             } else if board.is_capture_or_promotion(*mv) {
                 if board.is_capture(*mv) {
                     return get_capture_score(board, mv);
-            } else {
+                } else {
                     return mv.promo_piece() as MyVal * -3;
                 }
             } else if board.gives_check(*mv) {
@@ -302,9 +304,15 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
             tt.time_age(),
         );
 
+        // if hard_fail {
+        //     return ScoringMove {
+        //         bit_move: best_move,
+        //         score: alpha,
+        //     };
+        // }
         ScoringMove {
             bit_move: best_move,
-            score: alpha,
+            score: best_score,
         }
     }
 
@@ -338,7 +346,10 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
             }
         }
         if (best as i32) < max_swing {
-            return alpha;
+            // if hard_fail {
+            //     return alpha;
+            // }
+            return best;
         }
         
         if static_eval > alpha {
@@ -372,7 +383,7 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
                 -beta, -alpha,
                 ply + 1,
                 depth - 1,
-                tt
+                tt,
             );
             moves_played += 1;
             board.undo_move();
@@ -470,19 +481,232 @@ fn get_capture_score(board: &Board, mv: &BitMove) -> MyVal {
 
 #[cfg(test)]
 mod tests {
-    use pleco::Board;
+
+    use pleco::{BitMove, Board};
 
     use crate::processing::debug::{Trace, Tracing};
 
     use super::MySearcher;
 
-    #[test]
-    fn test_searcher() {
-
-        let mut board = Board::from_fen("2kn4/p1p1p2P/6P1/8/5Q2/8/5K2/8 w - - 0 1").unwrap();
+    fn eval(fen: &str, correct_src: u8, correct_dest: u8) {
+        let bm = ev(fen);
+        assert!(correct_src == bm.get_src_u8());
+        assert!(correct_dest == bm.get_dest_u8())
+    }
+    fn ev(fen: &str) -> BitMove {
+        let mut board = Board::from_fen(fen).unwrap();
         let mut searcher = MySearcher::trace(Trace::new());
-        let bm = searcher.find_best_move(&mut board, 5);
-        println!("Best Move = {bm}");
+        searcher.find_best_move(&mut board, 5)
     }
 
+    #[test]
+    fn test_best_move_1() {
+        let fen = "2b5/p2NBp1p/1bp1nPPr/3P4/2pRnr1P/1k1B1Ppp/1P1P1pQP/Rq1N3K b - - 0 1";
+        eval(fen, 23, 14);
+    }
+
+    #[test]
+    fn test_best_move_2() {
+        let fen = "2qb3R/rn3kPB/pR3n1p/P2P2bK/2p1P3/1PBPp1pP/1NrppPp1/3N2Q1 w - - 0 1";
+        eval(fen, 41, 45);
+    }
+    #[test]
+    #[should_panic]
+    fn test_best_move_3() {
+        let fen = "2q4R/rn3kPB/p4b1p/P2P2bK/2p1P3/1PBPp1pP/1NrppPp1/3N2Q1 w - - 0 2";
+        //TODO: THIS FAILS, WE DON'T RECOGNIZE THE DRAW
+        eval(fen, 63, 58);
+    }
+    #[test]
+    fn test_best_move_4() {
+        let fen = "1K1N4/R3b3/qP1P2pp/PP1PrBB1/p2np1b1/2pnPPpp/pP1Rr1N1/2k3Q1 b - - 0 1";
+        eval(fen, 2, 11);
+    }
+
+    #[test]
+    fn test_best_move_5() {
+        let fen = "NR5r/3P1rpk/2n2P1p/pnP1Qq2/P1RPbP1N/BP1B1pKP/p1pp3p/b7 w - - 0 1";
+        eval(fen, 36, 37);
+    }
+
+    #[test]
+    fn test_best_move_6() {
+        let fen = "1rbbN3/Kpp2p1Q/1n4nP/BP1BPp2/Pk2ppPp/3PN2p/2RR1PP1/1q5r b - - 0 1";
+        eval(fen, 25, 32);
+    }
+
+    #[test]
+    fn test_best_move_promo_to_q() {
+        //Best move promotion to q
+        let fen = "2R1N2N/P4K1P/qr5p/1bP1pPRP/1P1pPp1B/ppb2n2/2rppnPQ/2k4B w - - 0 1";
+        eval(fen, 48, 56);
+    }
+    fn mv2i(mv: &BitMove) -> (u8, u8) {
+        (mv.get_src_u8(), mv.get_dest_u8())
+    }
+    #[test]
+    fn test_best_move_dont_promo_to_q() {
+        //Best move promotion to q
+        let fen = "8/k1P5/2P5/K7/8/8/8/8 w - - 0 1";
+        let mv = ev(fen);
+        let (s, e) = mv2i(&mv);
+        assert!(s != 50 && e != 58);
+        //This value for now, stockfish best is 32 -> 33
+        assert!(s == 32 && e == 25);
+    }
+    #[test]
+    fn test_best_move_promo_to_r() {
+        //Best move promotion to r
+        let fen = "2R1N2N/P4K1P/qr5p/1bP1pPRP/1P1pPp1B/ppb2n2/2rppnPQ/2k4B w - - 0 1";
+        eval(fen, 48, 56);
+    }
+    #[test]
+    fn test_best_move_promo_to_b() {
+        //Best move promotion to r
+        let fen = "2R1N2N/P4K1P/qr5p/1bP1pPRP/1P1pPp1B/ppb2n2/2rppnPQ/2k4B w - - 0 1";
+        eval(fen, 48, 56);
+    }
+    #[test]
+    fn test_best_move_promo_to_n() {
+        //Best move promotion to r
+        let fen = "2R1N2N/P4K1P/qr5p/1bP1pPRP/1P1pPp1B/ppb2n2/2rppnPQ/2k4B w - - 0 1";
+        eval(fen, 48, 56);
+    }
+
+    //TODO: Test mating sequence
+    #[allow(unused)]
+    fn test_mate_in_3() {
+        //"NR5r/3P1rpk/2n2P1p/pnP1Qq2/P1RPbP1N/BP1B1pKP/p1pp3p/b7 w - - 0 1"
+    }
 }
+// pub fn search_root(&mut self, board: &mut Board, max_ply: u8) -> BitMove {
+
+//     self.start_time = Instant::now();
+
+//     let mut alpha: MyVal = NEG_INF_V;
+//     let mut beta: MyVal = INF_V;
+
+//     let tt = TranspositionTable::new_num_entries(TT_ENTRIES);
+//     tt.new_search();
+
+//     let mut all_moves = board.generate_moves();
+//     all_moves.sort_by_key(|mv| {
+//         if board.is_capture_or_promotion(*mv) {
+//             if board.is_capture(*mv) {
+//                 return get_capture_score(board, mv);
+//         } else {
+//                 return mv.promo_piece() as MyVal * -3;
+//             }
+//         } else if board.gives_check(*mv) {
+//             return -1
+//         }
+//         5
+//     });
+//     let mut root_moves: Vec<ScoringMove> = all_moves.iter()
+//         .map(|mv| -> ScoringMove { ScoringMove::new(*mv)})
+//         .collect();
+
+//     // for mv in &root_moves {
+//     //     println!("Root Move Opt = {}", mv.bit_move);
+//     // }
+
+//     'iterative_deepening: for depth in 1..=max_ply {
+
+//         let mut window: MyVal = 20;
+//         let next_depth = depth as i8 - 1;
+
+//         let best_root = root_moves.get(0).unwrap();
+
+//         if depth >= 3 {
+//             alpha = NEG_INF_V.max(best_root.score - window);
+//             beta = INF_V.min(best_root.score + window);
+//         }
+
+//         // println!("-------------");
+//         // println!("At Depth = {depth}");
+
+
+//         'aspiration_window: loop {
+
+//             // println!("-----");
+//             // println!("At Window = {window}");
+//             // println!("Alpha = {alpha}, Beta = {beta}");
+//             let mut this_run_scores: Vec<ScoringMove> = Vec::new();
+//             for mv in &root_moves {
+//                 board.apply_move(mv.bit_move);
+//                 let res = self.alpha_beta(
+//                     board,
+//                     -beta, -alpha,
+//                     next_depth,
+//                     1,
+//                     &tt
+//                 ).negate();
+//                 board.undo_move();
+//                 this_run_scores.push(ScoringMove::new_score(mv.bit_move, res.score));
+//             }
+
+//             this_run_scores.sort_by_key(|mv| {
+//                 -mv.score //IF +5 -> -5, +10 -> -10, -20 -> 20
+//                 // UNREACHABLE_V.wrapping_sub(mv.score) //Sort is ascending, so the better the score we want to be index 0
+//             });
+//             root_moves = this_run_scores.clone();
+
+//             if self.time_up() {
+//                 println!("Out of time, exiting at depth = {depth}");
+//                 break 'iterative_deepening;
+//             }
+
+//             let best = root_moves.get(0).unwrap();
+//             // score = best.score;
+            
+//             if best.bit_move != NULL_BIT_MOVE {
+//                 if best.score >= MATE_V - max_ply as MyVal {
+//                     // println!("Mate Found At Depth = {depth}");
+//                     break 'iterative_deepening;
+//                 }
+//             }
+
+//             if best.score <= alpha {
+//                 beta = (alpha + beta) / 2;
+//                 alpha = (best.score - window).max(NEG_INF_V);
+//             } else if best.score >= beta {
+//                 beta = (best.score + window).min(INF_V);
+//             } else {
+//                 break 'aspiration_window;
+//             }
+
+//             window += (window / 4) + 5;
+
+//         }
+
+//         if let Some(dbg) = self.tracer.trace() {
+//             let bm = root_moves.get(0).unwrap();
+//             self.pv_moves[0] = *bm;
+//             dbg.add_depth(
+//                 alpha, beta,
+//                 self.nodes_explored,
+//                 bm.bit_move, bm.score,
+//                 self.pv_moves
+//                     .to_vec().iter()
+//                     .filter(|p| !p.bit_move.is_null() )
+//                     .map(|s| &s.bit_move)
+//                     .cloned()
+//                     .collect(),
+//             );
+//             self.nodes_explored = 0;
+//         }
+//     }
+//     let best = root_moves.get(0).unwrap();
+//     if let Some(dbg) = self.tracer.trace() {
+//         dbg.add_duration(self.start_time.elapsed());
+//         println!("{dbg}");
+
+//         let eval = trace_eval(board);
+//         println!("Raw Eval Before Move = {eval}");
+//         println!("AB Eval = {}", best.score);
+//         println!("TT Percent = {}", tt.hash_percent());
+//         println!("TT Entries = {}", tt.num_entries());
+//     }
+
+//     best.bit_move
+// }
