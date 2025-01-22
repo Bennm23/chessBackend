@@ -48,7 +48,7 @@ mod tests {
 
     #[test]
     fn test_eval() {
-        let fen = "3qkb1r/3ppp2/3r1np1/2Q4p/5P2/1P3B2/P1P1PP1P/R2NK2R b k - 0 22";
+        let fen = "8/1R6/8/P7/1R1k4/P7/1KP2p2/6r1 b - - 5 43";
 
         let board = Board::from_fen(fen).unwrap();
 

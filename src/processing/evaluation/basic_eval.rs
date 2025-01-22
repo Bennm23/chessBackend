@@ -1,8 +1,8 @@
 
-use pleco::{core::{mono_traits::{BlackType, PlayerTrait, WhiteType}, score::Score}, Board, PieceType, Player, SQ};
+use pleco::{core::{mono_traits::{BlackType, PlayerTrait, WhiteType}, score::Score}, BitBoard, Board, File, PieceType, Player, Rank, SQ};
 
 
-use crate::processing::{consts::{EvalVal, MyVal, BISHOP_EG, BISHOP_MG, KNIGHT_EG, KNIGHT_MG, MAX_PHASE, MOBILITY_BONUS, PAWN_EG, PAWN_MG, QUEEN_EG, QUEEN_MG, ROOK_EG, ROOK_MG}, debug::{EvalDebugger, EvalPasses, Tracing}, tables::{material::Material, pawn_table::PawnTable}};
+use crate::processing::{consts::{EvalVal, MyVal, ADVANCED_PAWN_BONUS, BISHOP_EG, BISHOP_MG, DOUBLE_PAWN_PENALTY, KNIGHT_EG, KNIGHT_MG, MAX_PHASE, MOBILITY_BONUS, PASSED_PAWN_BONUS, PAWN_EG, PAWN_MG, PROMOTING_PAWN_BONUS, QUEEN_EG, QUEEN_MG, ROOK_EG, ROOK_MG}, debug::{EvalDebugger, EvalPasses, Tracing}, tables::{material::Material, pawn_table::PawnTable}};
 
 
 fn phase(board: &Board) -> EvalVal {
@@ -17,6 +17,7 @@ pub struct BasicEvaluator <'a, T: Tracing<EvalDebugger>> {
     board: &'a Board,
     phase: EvalVal,
     tracer: T,
+    all_bb: BitBoard,
     // pawn_entry: &'a mut PawnEntry,
     // material_entry: &'a mut MaterialEntry,
     board_pieces: [[PieceType; 64]; 2],
@@ -45,6 +46,7 @@ impl <'a, T: Tracing<EvalDebugger>> BasicEvaluator <'a, T> {
             board,
             phase: phase(board),
             tracer: trace,
+            all_bb: board.piece_bb_both_players(PieceType::All),
             // pawn_entry,
             // material_entry,
             board_pieces,
@@ -107,13 +109,53 @@ impl <'a, T: Tracing<EvalDebugger>> BasicEvaluator <'a, T> {
         let mobility = self.score_piece_mobility::<P>();
         score += mobility;
 
+        let pawn_structure = self.score_pawn_structure::<P>();
+        score += pawn_structure;
+
         // let pawn_worth = (PAWN_MG * self.phase + PAWN_EG * (MAX_PHASE - self.phase)) / MAX_PHASE;
         if let Some(dbg) = self.tracer.trace() {
             let player = P::player();
             dbg.set_eval(EvalPasses::Material, player, piece_eval);
             dbg.set_eval(EvalPasses::King, player, king_safety);
             dbg.set_eval(EvalPasses::Mobility, player, mobility);
+            dbg.set_eval(EvalPasses::PawnStructure, player, pawn_structure);
         }
+        score
+    }
+
+    fn score_pawn_structure<P: PlayerTrait>(
+        &self
+    ) -> Score {
+
+        let mut score = Score::ZERO;
+        let player = P::player();
+        let enemy_pawns = self.board.piece_bb(player, PieceType::P);
+        let my_pawns = self.board.piece_bb(player, PieceType::P);
+
+        let mut mpb = my_pawns;
+        while let Some((pawn_sq, bb)) = mpb.pop_some_lsb_and_bit() {
+
+            let enemy_blocking = enemy_pawns & pawn_sq.file_bb();
+
+            if enemy_blocking.count_bits() == 0 {
+                score += PASSED_PAWN_BONUS;
+            }
+            
+
+            let friendly_blocking = my_pawns & pawn_sq.file_bb();
+
+            if friendly_blocking.count_bits() > 1 {
+                score -= DOUBLE_PAWN_PENALTY;
+            }
+
+            let rel_rank = player.relative_rank_of_sq(pawn_sq);
+            if rel_rank == Rank::R7 {
+                score += PROMOTING_PAWN_BONUS;
+            } else if rel_rank == Rank::R5 || rel_rank == Rank::R6 {
+                score += ADVANCED_PAWN_BONUS;
+            }
+        }
+
         score
     }
 
@@ -129,7 +171,7 @@ impl <'a, T: Tracing<EvalDebugger>> BasicEvaluator <'a, T> {
         let mut total = Score::ZERO;
         let player = P::player();
 
-        let empty_squares = !self.board.piece_bb_both_players(PieceType::All);
+        let empty_squares = !self.all_bb;
 
         // println!("Evaluating Piece Mobility for {}", P::player());
         for (sq, piece) in self.board.get_piece_locations() {

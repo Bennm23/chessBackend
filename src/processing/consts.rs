@@ -56,7 +56,13 @@ pub const STALEMATE: MyVal = 0;
 
 //EVALUATION PATTERN CONSTANTS
 
-pub const PASSED_PAWN: MyVal = 10;
+pub const PASSED_PAWN_BONUS: Score = Score(10, 30);
+pub const PROMOTING_PAWN_BONUS: Score = Score(10, 300);
+pub const ADVANCED_PAWN_BONUS: Score = Score(10, 30);
+pub const PAWN_STORM_BONUS: Score = Score(10, 20);
+pub const DOUBLE_PAWN_PENALTY: Score = Score(15, 15);
+
+
 pub const SUPPORTED_PAWN: MyVal = 5;
 pub const NEIGHBOR_PAWN: MyVal = 3;
 pub const PAWN_ISOLATION: MyVal = 10;

@@ -17,7 +17,7 @@ pub enum EvalPasses {
     Imbalance = 7,
     Mobility = 8,
     Threat = 9,
-    Passed = 10,
+    PawnStructure = 10,
     Space = 11,
     Initiative = 12,
     Total = 13,
@@ -156,7 +156,7 @@ impl Display for EvalDebugger {
         writeln!(f, "    Mobility | {}", self.eval(EvalPasses::Mobility))?;
         writeln!(f, " King safety | {}", self.eval(EvalPasses::King))?;
         writeln!(f, "     Threats | {}", self.eval(EvalPasses::Threat))?;
-        // writeln!(f, "      Passed | {}", self.eval(EvalPasses::Passed))?;
+        writeln!(f, " Pawn Struct | {}", self.eval(EvalPasses::PawnStructure))?;
         // writeln!(f, "       Space | {}", self.eval(EvalPasses::Space))?;
         writeln!(f, " ------------+-----------------+-----------------+----------------")?;
         writeln!(f, "       Total | {}", self.eval(EvalPasses::Total))

@@ -3,13 +3,14 @@
 ## Move Optimization
 
 <!-- - Add root move search. After each depth, search the moves sorted by previous depth order. When timer expires, still use current value? This doesn't work it is slower -->
-- test fail soft v hard
+<!-- - test fail soft v hard (No Diff?) -->
 - why does sorting the root take so much longer?
 
 - Add killer moves
 - Add unit tests for search
 - improve evaluation and add tests
 - expand quiescence and use tt for it, investigate cap at 5
+- Static Exchange Evaluation (SEE) pruning for quiesence
 
 ---------------------
 
