@@ -2,7 +2,7 @@
 use pleco::{core::{mono_traits::{BlackType, PlayerTrait, WhiteType}, score::Score}, BitBoard, Board, File, PieceType, Player, Rank, SQ};
 
 
-use crate::processing::{consts::{EvalVal, MyVal, ADVANCED_PAWN_BONUS, BISHOP_EG, BISHOP_MG, DOUBLE_PAWN_PENALTY, KNIGHT_EG, KNIGHT_MG, MAX_PHASE, MOBILITY_BONUS, PASSED_PAWN_BONUS, PAWN_EG, PAWN_MG, PROMOTING_PAWN_BONUS, QUEEN_EG, QUEEN_MG, ROOK_EG, ROOK_MG}, debug::{EvalDebugger, EvalPasses, Tracing}, tables::{material::Material, pawn_table::PawnTable}};
+use crate::processing::{consts::{EvalVal, MyVal, BISHOP_EG, BISHOP_MG, DOUBLE_PAWN_PENALTY, KNIGHT_EG, KNIGHT_MG, MAX_PHASE, MOBILITY_BONUS, PASSED_PAWN_BONUS, PAWN_ADVANCEMENT_SCORES, PAWN_EG, PAWN_MG, QUEEN_EG, QUEEN_MG, ROOK_EG, ROOK_MG, WING_ADVANCE_SCORES}, debug::{EvalDebugger, EvalPasses, Tracing}, tables::{material::Material, pawn_table::PawnTable}};
 
 
 fn phase(board: &Board) -> EvalVal {
@@ -129,11 +129,11 @@ impl <'a, T: Tracing<EvalDebugger>> BasicEvaluator <'a, T> {
 
         let mut score = Score::ZERO;
         let player = P::player();
-        let enemy_pawns = self.board.piece_bb(player, PieceType::P);
+        let enemy_pawns = self.board.piece_bb(player.other_player(), PieceType::P);
         let my_pawns = self.board.piece_bb(player, PieceType::P);
 
         let mut mpb = my_pawns;
-        while let Some((pawn_sq, bb)) = mpb.pop_some_lsb_and_bit() {
+        while let Some((pawn_sq, _bb)) = mpb.pop_some_lsb_and_bit() {
 
             let enemy_blocking = enemy_pawns & pawn_sq.file_bb();
 
@@ -148,12 +148,17 @@ impl <'a, T: Tracing<EvalDebugger>> BasicEvaluator <'a, T> {
                 score -= DOUBLE_PAWN_PENALTY;
             }
 
-            let rel_rank = player.relative_rank_of_sq(pawn_sq);
-            if rel_rank == Rank::R7 {
-                score += PROMOTING_PAWN_BONUS;
-            } else if rel_rank == Rank::R5 || rel_rank == Rank::R6 {
-                score += ADVANCED_PAWN_BONUS;
+            let rel_rank = player.relative_rank_of_sq(pawn_sq) as usize;
+            score += PAWN_ADVANCEMENT_SCORES[rel_rank];
+            if rel_rank >= 4 { //Rank
+                score += WING_ADVANCE_SCORES[pawn_sq.file() as usize];
+                
             }
+            // if rel_rank == Rank::R7 {
+            //     score += PROMOTING_PAWN_BONUS;
+            // } else if rel_rank == Rank::R5 || rel_rank == Rank::R6 {
+            //     score += ADVANCED_PAWN_BONUS;
+            // }
         }
 
         score

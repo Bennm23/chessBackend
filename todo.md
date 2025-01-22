@@ -12,6 +12,11 @@
 - expand quiescence and use tt for it, investigate cap at 5
 - Static Exchange Evaluation (SEE) pruning for quiesence
 
+- work in king safety bonus
+- reduce wing pawn / pushing pawn bonus
+
+BEAT NORA BOT! Effective rating 2250
+
 ---------------------
 
 - Implement better move ordering

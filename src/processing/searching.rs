@@ -573,6 +573,13 @@ mod tests {
         eval(fen, 48, 56);
     }
 
+    #[test]
+    fn test_mating_no_tt() {
+       let fen = "8/1R6/8/PR6/3k4/P7/1KP2p2/6r1 w - - 4 43";
+       let mv = ev(fen);
+       println!("MV = {mv}");
+    }
+
     //TODO: Test mating sequence
     #[allow(unused)]
     fn test_mate_in_3() {

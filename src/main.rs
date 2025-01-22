@@ -7,6 +7,7 @@ use generated::common::MessageID;
 use pleco::PieceType;
 use protobuf::EnumOrUnknown;
 use protobuf::{Enum, Message, MessageField};
+use std::sync::Mutex;
 use std::time::Instant;
 use std::{
     io::{Read, Write},
@@ -236,8 +237,10 @@ fn handle_message(id: &MessageID, bytes: &[u8], socket: &mut TcpStream) {
     }
 }
 
+static SEND_LOCK: Mutex<()> = Mutex::new(());
 pub fn send_proto_msg(socket: &mut TcpStream, msg: &impl Message, msg_id: &MessageID) {
     let write_result = msg.write_to_bytes();
+    let _res = SEND_LOCK.lock();
     match write_result {
         Ok(bytes) => {
             let size_bytes = i32::to_be_bytes(bytes.len() as i32);

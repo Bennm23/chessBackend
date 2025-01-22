@@ -57,10 +57,33 @@ pub const STALEMATE: MyVal = 0;
 //EVALUATION PATTERN CONSTANTS
 
 pub const PASSED_PAWN_BONUS: Score = Score(10, 30);
-pub const PROMOTING_PAWN_BONUS: Score = Score(10, 300);
+pub const PROMOTING_PAWN_BONUS: Score = Score(10, 150);
 pub const ADVANCED_PAWN_BONUS: Score = Score(10, 30);
 pub const PAWN_STORM_BONUS: Score = Score(10, 20);
 pub const DOUBLE_PAWN_PENALTY: Score = Score(15, 15);
+
+pub const PAWN_ADVANCEMENT_SCORES: [Score; 8] = [
+    //Relative Rank
+    Score( 0,   0), // Rank 1
+    Score( 0,   0),
+    Score( 0,   0),
+    Score( 0,  15),
+    Score( 5,  30),
+    Score(20,  50),
+    Score(50, 150),
+    Score( 0,   0), // Rank 8, Impossible
+];
+pub const WING_ADVANCE_SCORES: [Score; 8] = [
+    //Relative Rank
+    Score(5,  30), // A File
+    Score(5,  20),
+    Score(0,  10),
+    Score(0,   0),
+    Score(0,   0),
+    Score(0,  10),
+    Score(5,  20),
+    Score(5,  30), // H File
+];
 
 
 pub const SUPPORTED_PAWN: MyVal = 5;
