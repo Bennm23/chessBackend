@@ -6,6 +6,10 @@
 <!-- - test fail soft v hard (No Diff?) -->
 - why does sorting the root take so much longer?
 
+- when player is being mated, the quiescence evaluation of the position is inaccurate. The lack of evaluation of king safety allows a position that doesn't lead to mate to be disregarded against another position that does. The TT will be fine, If I can assume that queiescence search handles all non-quiet positions accurately, which we cant right now. Test with this fen
+        let fen = "6rk/pp3p1p/8/n2Pq3/8/P4QPP/4rK2/1R1R4 w - - 0 29";
+    There are 3 moves for white, only f2f1 prevents mate
+
 - Add killer moves
 - Add unit tests for search
 - improve evaluation and add tests
@@ -199,3 +203,19 @@ BEAT NORA BOT! Effective rating 2250
         **time:   [626.75 ms 628.90 ms 633.65 ms]**
     - Search Kiwipete Depth 8
         **time:   [2.2806 s 2.2901 s 2.2994 s]**
+
+12. 833e44bb318f2606503323b51cadb36fe46cc3d6 Beat NORA effective rating 2250. Added some pawn structure benefits, switched to PLECO and fixed black king error
+    Engine Evaluations/New Full Evaluation
+        **time:   [2.2614 us 2.3174 us 2.3782 us]**
+    Search Default Depth 5
+        **time:   [138.49 ms 151.20 ms 161.06 ms]**
+    Search Default Depth 6
+        **time:   [594.40 ms 600.33 ms 613.24 ms]**
+    Search Default Depth 7
+        **time:   [1.9842 s 1.9870 s 1.9897 s]**
+    Search Kiwipete Depth 5
+        **time:   [135.29 ms 135.79 ms 136.44 ms]**
+    Search Kiwipete Depth 6
+        **time:   [194.24 ms 194.59 ms 195.00 ms]**
+    Search Kiwipete Depth 7
+        **time:   [738.13 ms 739.49 ms 740.91 ms]**

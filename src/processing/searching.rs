@@ -18,6 +18,26 @@ const NULL_BIT_MOVE: BitMove = BitMove::null();
 const TT_ENTRIES: usize = 2_000_000;
 pub const MAX_PLY: usize = 31;
 
+macro_rules! print_at_ply {
+    ($indent:expr, $fmt:expr, $($args:tt)*) => {
+        {
+            // Create a string of spaces
+            let spaces = "  ".repeat($indent as usize);
+            // Format the message with the provided arguments
+            let message = format!($fmt, $($args)*);
+            // Print the indented message
+            println!("{}{}", spaces, message);
+        }
+    };
+    // Case 2: No additional arguments
+    ($indent:expr, $fmt:expr) => {
+        {
+            let spaces = " ".repeat($indent as usize);
+            println!("{}{}", spaces, $fmt);
+        }
+    };
+}
+
 //TODO Give Searcher the board, add apply move to search
 pub struct MySearcher<T: Tracing<SearchDebugger>> {
     pawn_table: PawnTable,
