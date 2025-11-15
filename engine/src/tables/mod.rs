@@ -1,7 +1,3 @@
-pub mod butterfly;
-pub mod capture_piece_history;
-pub mod continuation;
-pub mod counter_move;
 pub mod material;
 pub mod pawn_table;
 
@@ -13,10 +9,6 @@ use std::ptr::NonNull;
 
 pub mod prelude {
     // easier exporting :)
-    pub use super::butterfly::ButterflyHistory;
-    pub use super::capture_piece_history::CapturePieceToHistory;
-    pub use super::continuation::{ContinuationHistory, PieceToHistory};
-    pub use super::counter_move::CounterMoveHistory;
     pub use super::{NumStatBoard, NumStatCube, StatBoard};
 }
 

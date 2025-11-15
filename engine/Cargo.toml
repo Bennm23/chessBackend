@@ -1,0 +1,15 @@
+[package]
+name = "engine"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+pleco = {path="../../Pleco/pleco"}
+lazy_static = "1.5.0"
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "bench_engine_main"
+harness = false

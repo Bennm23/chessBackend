@@ -1,4 +1,10 @@
 # Work to Do
+- finalize display and commit
+- move engine to its own crate
+    - test benchmarks/tests
+- host for real
+- debug positions and expected moves
+- after refinement, parallelize?
 
 ## Move Optimization
 

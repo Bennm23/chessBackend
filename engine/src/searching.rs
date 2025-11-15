@@ -1,11 +1,26 @@
-
 use std::time::{Duration, Instant};
 
-use pleco::{core::{mono_traits::{BlackType, PlayerTrait, WhiteType}, score::{DRAW, INFINITE, MATE, NEG_INFINITE}, GenTypes}, tools::{tt::{Entry, NodeBound, TranspositionTable}, PreFetchable}, BitMove, Board, Player, ScoringMove};
+use pleco::{
+    core::{
+        mono_traits::{BlackType, PlayerTrait, WhiteType},
+        score::{DRAW, INFINITE, MATE, NEG_INFINITE},
+        GenTypes,
+    },
+    tools::{
+        tt::{Entry, NodeBound, TranspositionTable},
+        PreFetchable,
+    },
+    BitMove, Board, Player, ScoringMove,
+};
 
-use crate::processing::{consts::MVV_LVA, evaluation::trace_eval};
+use crate::{consts::MVV_LVA, evaluation::trace_eval};
 
-use super::{consts::{EvalVal, MyVal, QUEEN_VALUE}, debug::{SearchDebugger, Trace, Tracing}, evaluation::eval_board, tables::{material::Material, pawn_table::PawnTable}};
+use super::{
+    consts::{EvalVal, MyVal, QUEEN_VALUE},
+    debug::{SearchDebugger, Trace, Tracing},
+    evaluation::eval_board,
+    tables::{material::Material, pawn_table::PawnTable},
+};
 
 const MATE_V: i16 = MATE as i16;
 const DRAW_V: i16 = DRAW as i16;
@@ -48,13 +63,11 @@ pub struct MySearcher<T: Tracing<SearchDebugger>> {
     //Debug
     tracer: T,
     nodes_explored: i64,
-    pv_moves: [ScoringMove; MAX_PLY]
+    pv_moves: [ScoringMove; MAX_PLY],
 }
 pub const NULL_SCORE: ScoringMove = ScoringMove::null();
 
-impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
-
-
+impl<T: Tracing<SearchDebugger>> MySearcher<T> {
     pub fn new(tracer: T, time_limit: Option<u128>) -> Self {
         Self {
             pawn_table: PawnTable::new(),
@@ -104,7 +117,6 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
     }
 
     pub fn find_best_move(&mut self, board: &mut Board, max_ply: u8) -> BitMove {
-
         self.start_time = Instant::now();
 
         let mut alpha: MyVal = NEG_INF_V;
@@ -118,7 +130,6 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
 
         let mut reached_depth = 1;
         'iterative_deepening: for depth in 1..=max_ply {
-
             let mut window: MyVal = 20;
 
             if depth >= 3 {
@@ -127,12 +138,7 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
             }
 
             'aspiration_window: loop {
-                let best = self.alpha_beta(
-                    board,
-                    alpha, beta,
-                    depth as i8, 0,
-                    &tt,
-                );
+                let best = self.alpha_beta(board, alpha, beta, depth as i8, 0, &tt);
 
                 if self.time_up() {
                     println!("Out of time, exiting at depth = {depth}");
@@ -142,7 +148,7 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
                 reached_depth = depth;
 
                 score = best.score;
-                
+
                 if best.bit_move != NULL_BIT_MOVE {
                     best_move = best;
                     if best.score >= MATE_V - max_ply as MyVal {
@@ -161,19 +167,20 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
                 }
 
                 window += (window / 4) + 5;
-
             }
-        
-            if let Some(dbg) = self.tracer.trace() {
 
+            if let Some(dbg) = self.tracer.trace() {
                 self.pv_moves[0] = best_move;
                 dbg.add_depth(
-                    alpha, beta,
+                    alpha,
+                    beta,
                     self.nodes_explored,
-                    best_move.bit_move, best_move.score,
+                    best_move.bit_move,
+                    best_move.score,
                     self.pv_moves
-                        .to_vec().iter()
-                        .filter(|p| !p.bit_move.is_null() )
+                        .to_vec()
+                        .iter()
+                        .filter(|p| !p.bit_move.is_null())
                         .map(|s| &s.bit_move)
                         .cloned()
                         .collect(),
@@ -200,12 +207,12 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
     fn alpha_beta(
         &mut self,
         board: &mut Board,
-        mut alpha: MyVal, beta: MyVal,
-        mut depth: i8, ply: u8,
+        mut alpha: MyVal,
+        beta: MyVal,
+        mut depth: i8,
+        ply: u8,
         tt: &TranspositionTable,
-
     ) -> ScoringMove {
-
         let mut all_moves = board.generate_moves();
 
         if all_moves.len() == 0 {
@@ -227,12 +234,11 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
         }
 
         let zobrist = board.zobrist();
-        let (tt_hit, tt_entry) : (bool, &mut Entry) = tt.probe(zobrist);
+        let (tt_hit, tt_entry): (bool, &mut Entry) = tt.probe(zobrist);
 
         let mut board_score = self.eval(board);
         // Check for TT Match
         if tt_hit && !tt_entry.best_move.is_null() {
-
             //If This entry was found earlier than the current
             if tt_entry.depth >= depth &&
             //And the node is valid given our current beta
@@ -243,7 +249,7 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
                     score: tt_entry.score,
                 };
             }
-        
+
             if correct_bound(tt_entry.score, board_score, tt_entry.node_type()) {
                 board_score = tt_entry.score;
             }
@@ -267,7 +273,7 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
                     return mv.promo_piece() as MyVal * -3;
                 }
             } else if board.gives_check(*mv) {
-                return -1
+                return -1;
             }
             5
         });
@@ -281,12 +287,9 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
             tt.prefetch(board.key_after(mv));
 
             board.apply_move(mv);
-            let eval = self.alpha_beta(
-                board,
-                -beta, -alpha,
-                depth - 1, ply + 1,
-                tt,
-            ).negate();
+            let eval = self
+                .alpha_beta(board, -beta, -alpha, depth - 1, ply + 1, tt)
+                .negate();
             board.undo_move();
 
             if eval.score > best_score {
@@ -294,7 +297,7 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
 
                 if eval.score > alpha {
                     best_move = mv;
-                
+
                     //Only set alpha when eval in bounds?
                     alpha = eval.score;
                     tt_flag = NodeBound::Exact;
@@ -315,12 +318,12 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
         }
 
         tt_entry.place(
-            zobrist, 
-            best_move, 
-            best_score, 
-            board_score, 
-            depth as i16, 
-            tt_flag, 
+            zobrist,
+            best_move,
+            best_score,
+            board_score,
+            depth as i16,
+            tt_flag,
             tt.time_age(),
         );
 
@@ -340,17 +343,15 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
         &mut self,
         board: &mut Board,
         mut alpha: MyVal,
-        beta : MyVal,
+        beta: MyVal,
         ply: u8,
         depth: i8,
         tt: &TranspositionTable,
-
     ) -> MyVal {
-
         let static_eval = self.eval(board);
         if static_eval >= beta {
-            return static_eval
-        } 
+            return static_eval;
+        }
 
         if depth == -5 {
             return static_eval;
@@ -359,7 +360,7 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
         let mut best = static_eval;
 
         //Check if we can even improve this position by the largest swing
-        let mut max_swing = alpha as i32 - QUEEN_VALUE as i32;//Evaluate as i32 in case where alpha is mate or uninit
+        let mut max_swing = alpha as i32 - QUEEN_VALUE as i32; //Evaluate as i32 in case where alpha is mate or uninit
         if let Some(mv) = board.last_move() {
             if mv.is_promo() {
                 max_swing -= 750;
@@ -371,7 +372,7 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
             // }
             return best;
         }
-        
+
         if static_eval > alpha {
             alpha = static_eval;
         }
@@ -395,16 +396,9 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
         let mut moves_played = 0;
 
         for mv in non_quiets {
-
             tt.prefetch(board.key_after(mv));
             board.apply_move(mv);
-            let score = -self.quiescence_search(
-                board,
-                -beta, -alpha,
-                ply + 1,
-                depth - 1,
-                tt,
-            );
+            let score = -self.quiescence_search(board, -beta, -alpha, ply + 1, depth - 1, tt);
             moves_played += 1;
             board.undo_move();
 
@@ -427,11 +421,9 @@ impl <T: Tracing<SearchDebugger>> MySearcher <T>  {
                 return static_eval;
             }
         }
-        
+
         best
     }
-
-
 }
 
 pub fn start_search(board: &mut Board) -> BitMove {
@@ -452,7 +444,7 @@ fn mated_in(ply: u8) -> MyVal {
 
 /// Determine whether or not the given Transposition Table Value
 /// should be used given our current beta and the node type.
-/// 
+///
 /// If tt_value >= beta but it is an upper bound then we can't use this entry
 ///     because it is better than the best possible
 /// Else if the entry is a lower bound but beta is worse than the tt entry
@@ -466,7 +458,6 @@ fn correct_bound_eq(tt_value: MyVal, beta: MyVal, bound: NodeBound) -> bool {
     } else {
         bound as u8 & NodeBound::UpperBound as u8 != 0
     }
-
 }
 #[inline(always)]
 fn correct_bound(tt_value: MyVal, val: MyVal, bound: NodeBound) -> bool {
@@ -476,7 +467,6 @@ fn correct_bound(tt_value: MyVal, val: MyVal, bound: NodeBound) -> bool {
     } else {
         bound as u8 & NodeBound::UpperBound as u8 != 0
     }
-
 }
 
 fn get_capture_score(board: &Board, mv: &BitMove) -> MyVal {
@@ -498,13 +488,12 @@ fn get_capture_score(board: &Board, mv: &BitMove) -> MyVal {
     return MVV_LVA[attacker.type_of() as usize - 1][captured.type_of() as usize - 1];
 }
 
-
 #[cfg(test)]
 mod tests {
 
     use pleco::{BitMove, Board};
 
-    use crate::processing::debug::{Trace, Tracing};
+    use crate::debug::{Trace, Tracing};
 
     use super::MySearcher;
 
@@ -595,9 +584,9 @@ mod tests {
 
     #[test]
     fn test_mating_no_tt() {
-       let fen = "8/1R6/8/PR6/3k4/P7/1KP2p2/6r1 w - - 4 43";
-       let mv = ev(fen);
-       println!("MV = {mv}");
+        let fen = "8/1R6/8/PR6/3k4/P7/1KP2p2/6r1 w - - 4 43";
+        let mv = ev(fen);
+        println!("MV = {mv}");
     }
 
     //TODO: Test mating sequence
@@ -652,7 +641,6 @@ mod tests {
 //         // println!("-------------");
 //         // println!("At Depth = {depth}");
 
-
 //         'aspiration_window: loop {
 
 //             // println!("-----");
@@ -685,7 +673,7 @@ mod tests {
 
 //             let best = root_moves.get(0).unwrap();
 //             // score = best.score;
-            
+
 //             if best.bit_move != NULL_BIT_MOVE {
 //                 if best.score >= MATE_V - max_ply as MyVal {
 //                     // println!("Mate Found At Depth = {depth}");

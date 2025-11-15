@@ -1,19 +1,30 @@
+use pleco::{
+    core::{
+        mono_traits::{BlackType, PlayerTrait, WhiteType},
+        score::Score,
+    },
+    BitBoard, Board, File, PieceType, Player, Rank, SQ,
+};
 
-use pleco::{core::{mono_traits::{BlackType, PlayerTrait, WhiteType}, score::Score}, BitBoard, Board, File, PieceType, Player, Rank, SQ};
-
-
-use crate::processing::{consts::{EvalVal, MyVal, BISHOP_EG, BISHOP_MG, DOUBLE_PAWN_PENALTY, KNIGHT_EG, KNIGHT_MG, MAX_PHASE, MOBILITY_BONUS, PASSED_PAWN_BONUS, PAWN_ADVANCEMENT_SCORES, PAWN_EG, PAWN_MG, QUEEN_EG, QUEEN_MG, ROOK_EG, ROOK_MG, WING_ADVANCE_SCORES}, debug::{EvalDebugger, EvalPasses, Tracing}, tables::{material::Material, pawn_table::PawnTable}};
-
+use crate::{
+    consts::{
+        EvalVal, MyVal, BISHOP_EG, BISHOP_MG, DOUBLE_PAWN_PENALTY, KNIGHT_EG, KNIGHT_MG, MAX_PHASE,
+        MOBILITY_BONUS, PASSED_PAWN_BONUS, PAWN_ADVANCEMENT_SCORES, PAWN_EG, PAWN_MG, QUEEN_EG,
+        QUEEN_MG, ROOK_EG, ROOK_MG, WING_ADVANCE_SCORES,
+    },
+    debug::{EvalDebugger, EvalPasses, Tracing},
+    tables::{material::Material, pawn_table::PawnTable},
+};
 
 fn phase(board: &Board) -> EvalVal {
     let midgame_limit = 15258;
-    let endgame_limit  = 3915;
+    let endgame_limit = 3915;
     let mut npm = board.non_pawn_material_all();
     npm = endgame_limit.max(npm.min(midgame_limit));
     ((((npm - endgame_limit) * MAX_PHASE as i32) / (midgame_limit - endgame_limit)) as EvalVal) << 0
 }
 
-pub struct BasicEvaluator <'a, T: Tracing<EvalDebugger>> {
+pub struct BasicEvaluator<'a, T: Tracing<EvalDebugger>> {
     board: &'a Board,
     phase: EvalVal,
     tracer: T,
@@ -23,10 +34,10 @@ pub struct BasicEvaluator <'a, T: Tracing<EvalDebugger>> {
     board_pieces: [[PieceType; 64]; 2],
 }
 
-impl <'a, T: Tracing<EvalDebugger>> BasicEvaluator <'a, T> {
+impl<'a, T: Tracing<EvalDebugger>> BasicEvaluator<'a, T> {
     pub fn new(
         board: &'a Board,
-        trace: T, 
+        trace: T,
         _pawn_table: &'a mut PawnTable,
         _material: &'a mut Material,
     ) -> Self {
@@ -70,34 +81,32 @@ impl <'a, T: Tracing<EvalDebugger>> BasicEvaluator <'a, T> {
     pub fn white_score(&mut self) -> EvalVal {
         let mut score = Score::ZERO;
 
-        let player_score = 
-            self.score_player_new::<WhiteType>() -
-            self.score_player_new::<BlackType>();
+        let player_score =
+            self.score_player_new::<WhiteType>() - self.score_player_new::<BlackType>();
 
         score += player_score;
 
-
         if let Some(dbg) = self.tracer.trace() {
             let player = Player::White;
-        
+
             // dbg.set_eval(EvalPasses::Material, player, self.board.psq());
             // dbg.set_eval(EvalPasses::Imbalance, player, self.material_entry.score());
             // dbg.set_two_eval(
-            //     EvalPasses::Pawn, 
-            //     self.pawn_entry.pawns_score(Player::White), 
+            //     EvalPasses::Pawn,
+            //     self.pawn_entry.pawns_score(Player::White),
             //     self.pawn_entry.pawns_score(Player::Black),
             // );
             dbg.set_eval(EvalPasses::Total, player, score);
             println!("{dbg}");
         }
 
-        let raw_score = (score.mg() * self.phase + score.eg() * (MAX_PHASE - self.phase)) / MAX_PHASE;
+        let raw_score =
+            (score.mg() * self.phase + score.eg() * (MAX_PHASE - self.phase)) / MAX_PHASE;
 
         raw_score
     }
 
     fn score_player_new<P: PlayerTrait>(&mut self) -> Score {
-
         let mut score = Score::ZERO;
 
         let piece_eval = self.score_raw_pieces::<P>();
@@ -123,10 +132,7 @@ impl <'a, T: Tracing<EvalDebugger>> BasicEvaluator <'a, T> {
         score
     }
 
-    fn score_pawn_structure<P: PlayerTrait>(
-        &self
-    ) -> Score {
-
+    fn score_pawn_structure<P: PlayerTrait>(&self) -> Score {
         let mut score = Score::ZERO;
         let player = P::player();
         let enemy_pawns = self.board.piece_bb(player.other_player(), PieceType::P);
@@ -134,13 +140,11 @@ impl <'a, T: Tracing<EvalDebugger>> BasicEvaluator <'a, T> {
 
         let mut mpb = my_pawns;
         while let Some((pawn_sq, _bb)) = mpb.pop_some_lsb_and_bit() {
-
             let enemy_blocking = enemy_pawns & pawn_sq.file_bb();
 
             if enemy_blocking.count_bits() == 0 {
                 score += PASSED_PAWN_BONUS;
             }
-            
 
             let friendly_blocking = my_pawns & pawn_sq.file_bb();
 
@@ -150,9 +154,9 @@ impl <'a, T: Tracing<EvalDebugger>> BasicEvaluator <'a, T> {
 
             let rel_rank = player.relative_rank_of_sq(pawn_sq) as usize;
             score += PAWN_ADVANCEMENT_SCORES[rel_rank];
-            if rel_rank >= 4 { //Rank
+            if rel_rank >= 4 {
+                //Rank
                 score += WING_ADVANCE_SCORES[pawn_sq.file() as usize];
-                
             }
             // if rel_rank == Rank::R7 {
             //     score += PROMOTING_PAWN_BONUS;
@@ -164,15 +168,10 @@ impl <'a, T: Tracing<EvalDebugger>> BasicEvaluator <'a, T> {
         score
     }
 
-    fn score_king_safety<P: PlayerTrait>(
-        &self
-    ) -> Score {
+    fn score_king_safety<P: PlayerTrait>(&self) -> Score {
         Score::ZERO
     }
-    fn score_piece_mobility<P: PlayerTrait>(
-        &self
-    ) -> Score {
-
+    fn score_piece_mobility<P: PlayerTrait>(&self) -> Score {
         let mut total = Score::ZERO;
         let player = P::player();
 
@@ -180,74 +179,59 @@ impl <'a, T: Tracing<EvalDebugger>> BasicEvaluator <'a, T> {
 
         // println!("Evaluating Piece Mobility for {}", P::player());
         for (sq, piece) in self.board.get_piece_locations() {
-           if piece.player_lossy() != player {
-            continue;
-           }
-           let num_attacks = self.board.attacks_from(piece.type_of(), sq, player) & empty_squares;
-           total += MOBILITY_BONUS[piece.type_of() as usize][num_attacks.count_bits() as usize];
-        //    let mob = MOBILITY_BONUS[piece.type_of() as usize][num_attacks.count_bits() as usize];
-        //    total += mob;
-        //    println!("Piece = {piece} Attacks {} Mobility Score = {}", num_attacks.count_bits(), score_str(mob));
+            if piece.player_lossy() != player {
+                continue;
+            }
+            let num_attacks = self.board.attacks_from(piece.type_of(), sq, player) & empty_squares;
+            total += MOBILITY_BONUS[piece.type_of() as usize][num_attacks.count_bits() as usize];
+            //    let mob = MOBILITY_BONUS[piece.type_of() as usize][num_attacks.count_bits() as usize];
+            //    total += mob;
+            //    println!("Piece = {piece} Attacks {} Mobility Score = {}", num_attacks.count_bits(), score_str(mob));
         }
         total
     }
 
     fn get_raw_piece_val(&self, piece: PieceType) -> Score {
-
         let res = match piece {
-            PieceType::P => {
-                Score::new(PAWN_MG * self.phase, (MAX_PHASE - self.phase) * PAWN_EG)
-            }
+            PieceType::P => Score::new(PAWN_MG * self.phase, (MAX_PHASE - self.phase) * PAWN_EG),
             PieceType::N => {
                 Score::new(KNIGHT_MG * self.phase, (MAX_PHASE - self.phase) * KNIGHT_EG)
             }
             PieceType::B => {
                 Score::new(BISHOP_MG * self.phase, (MAX_PHASE - self.phase) * BISHOP_EG)
             }
-            PieceType::R => {
-                Score::new(ROOK_MG * self.phase, (MAX_PHASE - self.phase) * ROOK_EG)
-            }
-            PieceType::Q => {
-                Score::new(QUEEN_MG * self.phase, (MAX_PHASE - self.phase) * QUEEN_EG)
-            }
-            _ => { return Score::ZERO }
+            PieceType::R => Score::new(ROOK_MG * self.phase, (MAX_PHASE - self.phase) * ROOK_EG),
+            PieceType::Q => Score::new(QUEEN_MG * self.phase, (MAX_PHASE - self.phase) * QUEEN_EG),
+            _ => return Score::ZERO,
         };
-    
+
         div_u8(res, MAX_PHASE as u8)
     }
 
-    fn score_raw_pieces<P: PlayerTrait>(
-        &mut self
-    ) -> Score {
-
+    fn score_raw_pieces<P: PlayerTrait>(&mut self) -> Score {
         let mut score = Score::ZERO;
         let player = P::player();
 
         //Each raw score is the value of that piece relative to the game phase.
         //So a rook with only 20 pieces left is worth more like 560 then 500
-        let pawn_score = 
-            self.get_raw_piece_val(PieceType::P) *
-            self.board.count_piece(player, PieceType::P);
+        let pawn_score =
+            self.get_raw_piece_val(PieceType::P) * self.board.count_piece(player, PieceType::P);
         score += pawn_score;
 
-        let knight_score = 
-            self.get_raw_piece_val(PieceType::N) *
-            self.board.count_piece(player, PieceType::N);
+        let knight_score =
+            self.get_raw_piece_val(PieceType::N) * self.board.count_piece(player, PieceType::N);
         score += knight_score;
 
-        let bishop_score = 
-            self.get_raw_piece_val(PieceType::B) *
-            self.board.count_piece(player, PieceType::B);
+        let bishop_score =
+            self.get_raw_piece_val(PieceType::B) * self.board.count_piece(player, PieceType::B);
         score += bishop_score;
 
-        let rook_score = 
-            self.get_raw_piece_val(PieceType::R) *
-            self.board.count_piece(player, PieceType::R);
+        let rook_score =
+            self.get_raw_piece_val(PieceType::R) * self.board.count_piece(player, PieceType::R);
         score += rook_score;
 
-        let queen_score = 
-            self.get_raw_piece_val(PieceType::Q) *
-            self.board.count_piece(player, PieceType::Q);
+        let queen_score =
+            self.get_raw_piece_val(PieceType::Q) * self.board.count_piece(player, PieceType::Q);
         score += queen_score;
 
         if let Some(dbg) = self.tracer.trace() {
@@ -270,7 +254,6 @@ impl <'a, T: Tracing<EvalDebugger>> BasicEvaluator <'a, T> {
     fn get_piece_val_on_sq(&self, sq: SQ, player: Player) -> Score {
         self.get_raw_piece_val(self.get_piece_on_sq(sq, player))
     }
-
 }
 
 #[inline(always)]

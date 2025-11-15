@@ -1,8 +1,10 @@
-
 use std::time::Duration;
 
-use chess_lib::processing::{evaluation::eval_board, tables::{material::Material, pawn_table::PawnTable}};
-use criterion::{black_box, criterion_group, BatchSize, Bencher, Criterion, Fun};
+use criterion::{black_box, criterion_group, BatchSize, Bencher, Criterion};
+use engine::{
+    evaluation::eval_board,
+    tables::{material::Material, pawn_table::PawnTable},
+};
 use pleco::Board;
 
 fn bench_10_eval_new(b: &mut Bencher, boards: &Vec<Board>) {
@@ -16,8 +18,8 @@ fn bench_10_eval_new(b: &mut Bencher, boards: &Vec<Board>) {
             for board in boards.iter() {
                 black_box(eval_board(&board, &mut pawn_table, &mut material));
             }
-        }, 
-    BatchSize::PerIteration
+        },
+        BatchSize::PerIteration,
     );
 }
 
@@ -27,12 +29,7 @@ fn bench_engine_evaluations(c: &mut Criterion) {
         .map(|b| Board::from_fen(b).unwrap())
         .collect();
 
-    //time:   [3.9214 us 4.0038 us 4.0838 us]
-    let full_evals_new = Fun::new("New Full Evaluation", bench_10_eval_new);
-
-    let funcs = vec![full_evals_new];
-
-    c.bench_functions("Engine Evaluations", funcs, boards);
+    c.bench_function("New Full Evaluation", |b| bench_10_eval_new(b, &boards));
 }
 
 criterion_group!(name = eval_benches;
