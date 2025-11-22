@@ -1,16 +1,18 @@
-use engine::searching::start_search;
+use engine::searching::{eval_search, start_search};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum ClientMessage {
     GetBestMove { fen: String },
+    GetBoardEval { fen: String },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum ServerMessage {
     BestMove { best_move: String },
+    BoardEval { score: f64 },
     Error { message: String },
 }
 use axum::{
@@ -68,6 +70,16 @@ async fn handle_socket(mut socket: WebSocket) {
 
                     let resp_text = serde_json::to_string(&best_move).unwrap();
                     if socket.send(Message::Text(resp_text.into())).await.is_err() {
+                        break;
+                    }
+                }
+                Ok(ClientMessage::GetBoardEval { fen }) => {
+                    println!("Received FEN for eval: {}", fen);
+                    let mut board = pleco::Board::from_fen(&fen).expect("Board Fen Create Failed");
+                    let score = eval_search(&mut board);
+                    let eval = ServerMessage::BoardEval { score };
+
+                    if socket.send(Message::Text(serde_json::to_string(&eval).unwrap().into())).await.is_err() {
                         break;
                     }
                 }

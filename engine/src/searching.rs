@@ -13,7 +13,7 @@ use pleco::{
     BitMove, Board, Player, ScoringMove,
 };
 
-use crate::{consts::MVV_LVA, evaluation::trace_eval};
+use crate::{consts::MVV_LVA, debug::NoTrace, evaluation::trace_eval};
 
 use super::{
     consts::{EvalVal, MyVal, QUEEN_VALUE},
@@ -115,8 +115,16 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
             false
         }
     }
+    pub fn search_eval(&mut self, board: &mut Board, max_ply: u8) -> f64 {
+        let best_move = self.perform_search(board, max_ply);
+        if board.turn() == Player::Black {
+            - best_move.score as f64 / 100f64
+        } else {
+            best_move.score as f64 / 100f64
+        }
+    }
 
-    pub fn find_best_move(&mut self, board: &mut Board, max_ply: u8) -> BitMove {
+    pub fn perform_search(&mut self, board: &mut Board, max_ply: u8) -> ScoringMove {
         self.start_time = Instant::now();
 
         let mut alpha: MyVal = NEG_INF_V;
@@ -200,8 +208,11 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
                 println!("Mate Found At Depth = {reached_depth}");
             }
         }
-
-        best_move.bit_move
+        best_move
+    }
+    pub fn find_best_move(&mut self, board: &mut Board, max_ply: u8) -> BitMove {
+        let res = self.perform_search(board, max_ply);
+        res.bit_move
     }
 
     fn alpha_beta(
@@ -430,6 +441,10 @@ pub fn start_search(board: &mut Board) -> BitMove {
     let mut searcher = MySearcher::new(Trace::new(), Some(1000));
 
     searcher.find_best_move(board, MAX_PLY as u8)
+}
+pub fn eval_search(board: &mut Board) -> f64 {
+    let mut searcher = MySearcher::new(NoTrace::new(), Some(1000));
+    searcher.search_eval(board, MAX_PLY as u8)
 }
 
 #[inline(always)]
