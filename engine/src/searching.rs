@@ -26,34 +26,12 @@ const MATE_V: i16 = MATE as i16;
 const DRAW_V: i16 = DRAW as i16;
 const NEG_INF_V: i16 = NEG_INFINITE as i16;
 const INF_V: i16 = INFINITE as i16;
-const UNREACHABLE_V: MyVal = MATE_V + 100;
 
 const NULL_BIT_MOVE: BitMove = BitMove::null();
 
 const TT_ENTRIES: usize = 2_000_000;
 pub const MAX_PLY: usize = 31;
 
-macro_rules! print_at_ply {
-    ($indent:expr, $fmt:expr, $($args:tt)*) => {
-        {
-            // Create a string of spaces
-            let spaces = "  ".repeat($indent as usize);
-            // Format the message with the provided arguments
-            let message = format!($fmt, $($args)*);
-            // Print the indented message
-            println!("{}{}", spaces, message);
-        }
-    };
-    // Case 2: No additional arguments
-    ($indent:expr, $fmt:expr) => {
-        {
-            let spaces = " ".repeat($indent as usize);
-            println!("{}{}", spaces, $fmt);
-        }
-    };
-}
-
-//TODO Give Searcher the board, add apply move to search
 pub struct MySearcher<T: Tracing<SearchDebugger>> {
     pawn_table: PawnTable,
     material: Material,
@@ -502,6 +480,7 @@ pub fn eval_search(board: &mut Board) -> f64 {
 }
 
 #[inline(always)]
+#[allow(unused)]
 fn mate_in(ply: u8) -> MyVal {
     MATE_V - ply as MyVal
 }
@@ -511,32 +490,6 @@ fn mated_in(ply: u8) -> MyVal {
     -MATE_V + ply as MyVal
 }
 
-/// Determine whether or not the given Transposition Table Value
-/// should be used given our current beta and the node type.
-///
-/// If tt_value >= beta but it is an upper bound then we can't use this entry
-///     because it is better than the best possible
-/// Else if the entry is a lower bound but beta is worse than the tt entry
-///     we know we have a better option than this so return
-/// Always return exact
-#[inline(always)]
-fn correct_bound_eq(tt_value: MyVal, beta: MyVal, bound: NodeBound) -> bool {
-    if tt_value >= beta {
-        // bound != NodeBound::UpperBound
-        bound as u8 & NodeBound::LowerBound as u8 != 0
-    } else {
-        bound as u8 & NodeBound::UpperBound as u8 != 0
-    }
-}
-#[inline(always)]
-fn correct_bound(tt_value: MyVal, val: MyVal, bound: NodeBound) -> bool {
-    if tt_value >= val {
-        // bound != NodeBound::UpperBound
-        bound as u8 & NodeBound::LowerBound as u8 != 0
-    } else {
-        bound as u8 & NodeBound::UpperBound as u8 != 0
-    }
-}
 
 /// Decide if a TT entry allows immediate cutoff at this node.
 /// Returns Some(score) if we can return immediately, None otherwise.

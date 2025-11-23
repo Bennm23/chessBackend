@@ -1,5 +1,4 @@
 pub mod searching;
-pub mod ai_search;
 pub mod final_search;
 pub mod consts;
 pub mod debug;
@@ -16,3 +15,23 @@ pub mod prelude {
     pub use super::searching;
 }
 
+#[allow(unused)]
+macro_rules! print_at_ply {
+    ($indent:expr, $fmt:expr, $($args:tt)*) => {
+        {
+            // Create a string of spaces
+            let spaces = "  ".repeat($indent as usize);
+            // Format the message with the provided arguments
+            let message = format!($fmt, $($args)*);
+            // Print the indented message
+            println!("{}{}", spaces, message);
+        }
+    };
+    // Case 2: No additional arguments
+    ($indent:expr, $fmt:expr) => {
+        {
+            let spaces = " ".repeat($indent as usize);
+            println!("{}{}", spaces, $fmt);
+        }
+    };
+}

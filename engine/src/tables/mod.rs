@@ -8,7 +8,6 @@ use std::ptr;
 use std::ptr::NonNull;
 
 pub mod prelude {
-    // easier exporting :)
     pub use super::{NumStatBoard, NumStatCube, StatBoard};
 }
 

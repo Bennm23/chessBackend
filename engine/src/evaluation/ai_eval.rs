@@ -3,7 +3,7 @@ use pleco::{
         mono_traits::{BlackType, PlayerTrait, WhiteType},
         score::Score,
     },
-    BitBoard, Board, File, PieceType, Player, Rank, SQ,
+    BitBoard, Board, PieceType, Player, SQ,
 };
 
 use crate::{
@@ -392,6 +392,7 @@ fn div_score(a: Score, b: Score) -> Score {
 }
 
 #[inline(always)]
+#[allow(unused)]
 fn div_u8(a: Score, b: u8) -> Score {
     Score(a.mg() / b as EvalVal, a.eg() / b as EvalVal)
 }

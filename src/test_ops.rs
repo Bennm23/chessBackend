@@ -1,3 +1,6 @@
+use std::time::Instant;
+
+#[allow(unused)]
 pub const TRAINING_FENS: [&str; 1000] = [
     "rnb1kbnr/pp1ppp2/6pp/q1p5/P1P5/6P1/1P1PPP1P/RNBQKBNR w - - 0 1",
     "r1bqkbnr/2pppppp/ppn5/7P/8/4PN2/PPPP1PP1/RNBQKB1R b - - 0 1",
@@ -1001,6 +1004,7 @@ pub const TRAINING_FENS: [&str; 1000] = [
     "r1b1kb1r/4pn1p/2pq3n/p4P2/pP3Pp1/R1PP3N/4P2P/3KQBBR b - - 0 1",
 ];
 
+#[allow(unused)]
 pub const EARLY_BALANCED_FENS: [&str; 86] = [
     "rnbqkbnr/p1pppppp/8/1p6/8/2N3P1/PPPPPP1P/R1BQKBNR b - - 0 2",
     "rnbqkbnr/ppppp1pp/5p2/8/7P/7N/PPPPPPP1/RNBQKB1R b - - 0 2",
@@ -1090,6 +1094,7 @@ pub const EARLY_BALANCED_FENS: [&str; 86] = [
     "rnbqkbnr/1ppppppp/8/p7/8/4PP2/PPPP2PP/RNBQKBNR b - - 0 2",
 ];
 
+#[allow(unused)]
 pub const EARLY_COMMON_FENS: [&str; 89] = [
     "rnbqkbnr/pppppppp/8/4P3/8/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
     "rnbqkbnr/pppp1ppp/8/4p3/8/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2",
@@ -1181,3 +1186,77 @@ pub const EARLY_COMMON_FENS: [&str; 89] = [
     "rnbqkbnr/ppp1pp1p/3p2p1/8/3PP3/8/PPP2PPP/RNBQKBNR w KQkq d6 0 3",
     "rnbqkbnr/ppp1pp1p/3p2p1/8/3PP3/5N2/PPP2PPP/RNBQKB1R b KQkq - 1 3",
 ];
+
+#[allow(unused)]
+pub fn test_suite() {
+    const GAMES: usize = 86;
+
+    let mut new_is_white: bool = false;
+    let start = Instant::now();
+
+    let mut new_wins = 0f32;
+    let mut old_wins = 0f32;
+    let mut total_draws = 0;
+
+    let mut important: Vec<String> = vec![];
+
+    for game in 0..GAMES {
+        // let mut board = pleco::Board::default();
+        let mut board = pleco::Board::from_fen(
+            EARLY_BALANCED_FENS[game % EARLY_BALANCED_FENS.len()]
+        )
+        .expect("Fen parse failed");
+
+        println!("Game {}, New Playing as {}: Start FEN = {}", game + 1, if new_is_white { "White" } else { "Black" }, board.fen());
+        important.push(format!("Game {}, New Playing as {}: Start FEN = {}", game + 1, if new_is_white { "White" } else { "Black" }, board.fen()));
+
+        'gameloop: while !board.generate_moves().is_empty() {
+            let white_to_move = board.turn() == pleco::Player::White;
+            let mv = if (white_to_move && new_is_white) || (!white_to_move && !new_is_white) {
+                // New engine to move
+                engine::final_search::search_to_depth(&mut board, 11)
+            } else {
+                // Old engine to move
+                engine::searching::start_search_quiet(&mut board)
+            };
+            if mv.is_null() {
+                break 'gameloop;
+            }
+            board.apply_move(mv);
+        }
+
+
+        let white_to_move = board.turn() == pleco::Player::White;
+        if board.checkmate() {
+            let str;
+            // If new player is to move
+            if white_to_move == new_is_white {
+                str = format!("Game {}: Old engine wins", game + 1);
+                old_wins += 1.0;
+            } else {
+                str = format!("Game {}: New engine wins", game + 1);
+                new_wins += 1.0;
+            }
+
+            important.push(str);
+        } else {
+            important.push(format!("Game {}: Draw by stalemate", game + 1));
+            total_draws += 1;
+        }
+        important.push(format!("Game {}: End FEN = {}", game + 1, board.fen()));
+
+        new_is_white = !new_is_white;
+    }
+
+    println!("========== Run Over Results ==========");
+    for line in important {
+        println!("{}", line);
+    }
+    println!("========= Final Scores =========");
+    println!("Total Games: {}", GAMES);
+    println!("Old Wins: {}", old_wins);
+    println!("New Wins: {}", new_wins);
+    println!("Draws: {}", total_draws);
+    let duration = start.elapsed();
+    println!("Total Time: {} seconds", duration.as_secs());
+}

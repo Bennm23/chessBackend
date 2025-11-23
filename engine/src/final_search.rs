@@ -22,7 +22,6 @@ use crate::{
 use super::{
     consts::{EvalVal, MyVal, QUEEN_VALUE},
     debug::{SearchDebugger, Trace, Tracing},
-    evaluation::eval_board,
     tables::{material::Material, pawn_table::PawnTable},
 };
 
@@ -31,12 +30,9 @@ const DRAW_V: MyVal = DRAW as MyVal;
 const NEG_INF_V: MyVal = NEG_INFINITE as MyVal;
 const INF_V: MyVal = INFINITE as MyVal;
 
-// Sentinel value kept for compatibility; do NOT store in TT.
-const UNREACHABLE_V: MyVal = MATE_V + 100;
-
 const NULL_BIT_MOVE: BitMove = BitMove::null();
 
-const TT_ENTRIES: usize = 2_000_000;
+const TT_ENTRIES: usize = 200_000;
 pub const MAX_PLY: usize = 31;
 const NUM_SQUARES: usize = 64;
 
@@ -51,18 +47,6 @@ const NULL_MOVE_REDUCTION_BASE: i8 = 2;
 // Futility parameters (very mild, only on quiet nodes, never in check).
 const FUTILITY_MAX_DEPTH: i8 = 2; // only at depth 1..2
 const FUTILITY_BASE_MARGIN: MyVal = 100; // ~1 pawn per depth unit
-
-macro_rules! print_at_ply {
-    ($indent:expr, $fmt:expr, $($args:tt)*) => {{
-        let spaces = "  ".repeat($indent as usize);
-        let message = format!($fmt, $($args)*);
-        println!("{}{}", spaces, message);
-    }};
-    ($indent:expr, $fmt:expr) => {{
-        let spaces = " ".repeat($indent as usize);
-        println!("{}{}", spaces, $fmt);
-    }};
-}
 
 // Searcher with TT, history, killers.
 pub struct MySearcher<T: Tracing<SearchDebugger>> {
@@ -176,8 +160,8 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
         self.tt.new_search();
         self.last_root_move = NULL_BIT_MOVE;
 
-        let mut alpha: MyVal = NEG_INF_V;
-        let mut beta: MyVal = INF_V;
+        let mut alpha: MyVal;
+        let mut beta: MyVal;
 
         let mut best_move: ScoringMove = ScoringMove::blank(0);
         let mut score: MyVal = 0;
@@ -300,7 +284,6 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
                 println!("Mate Found At Depth = {reached_depth}");
             }
         }
-        // println!("Final: Reached Depth = {reached_depth}");
 
         best_move
     }
@@ -793,6 +776,10 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
 pub fn start_search_quiet(board: &mut Board) -> BitMove {
     let mut searcher = MySearcher::new(NoTrace::new(), Some(250));
     searcher.find_best_move(board, MAX_PLY as u8)
+}
+pub fn search_to_depth(board: &mut Board , ply : u8) -> BitMove {
+    let mut searcher = MySearcher::new(NoTrace::new(), None);
+    searcher.find_best_move(board, ply)
 }
 
 pub fn start_search(board: &mut Board) -> BitMove {

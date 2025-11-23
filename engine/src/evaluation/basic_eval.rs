@@ -3,7 +3,7 @@ use pleco::{
         mono_traits::{BlackType, PlayerTrait, WhiteType},
         score::Score,
     },
-    BitBoard, Board, File, PieceType, Player, Rank, SQ,
+    BitBoard, Board, PieceType, Player, SQ,
 };
 
 use crate::{
