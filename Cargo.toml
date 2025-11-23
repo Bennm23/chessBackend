@@ -22,7 +22,7 @@ engine = { path = "engine" }
 opt-level = 3
 panic = "abort"
 codegen-units = 1
-lto = true
+lto = "fat"
 
 [profile.release]
 opt-level = 3
@@ -30,13 +30,18 @@ debug = false
 debug-assertions = false
 panic = "abort"
 codegen-units = 1
-lto = true
+lto = "fat"
+
+[profile.release.package."*"]
+opt-level = 3
+codegen-units = 1
+
 
 [profile.bench]
 opt-level = 3
 debug = false
 rpath = false
-lto = true
+lto = "fat"
 debug-assertions = false
 codegen-units = 1
 

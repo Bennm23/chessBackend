@@ -116,6 +116,7 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
         }
     }
     pub fn search_eval(&mut self, board: &mut Board, max_ply: u8) -> f64 {
+        //TODO: Store searcher and dont erase TT for evaluation to be quicker
         let best_move = self.perform_search(board, max_ply);
         if board.turn() == Player::Black {
             - best_move.score as f64 / 100f64
@@ -149,7 +150,9 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
                 let best = self.alpha_beta(board, alpha, beta, depth as i8, 0, &tt);
 
                 if self.time_up() {
-                    println!("Out of time, exiting at depth = {depth}");
+                    if self.tracer.trace().is_some() {
+                        println!("Out of time, exiting at depth = {depth}");
+                    }
                     break 'iterative_deepening;
                 }
 
@@ -208,6 +211,7 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
                 println!("Mate Found At Depth = {reached_depth}");
             }
         }
+        // println!("Old: Reached Depth = {reached_depth}");
         best_move
     }
     pub fn find_best_move(&mut self, board: &mut Board, max_ply: u8) -> BitMove {
@@ -215,6 +219,13 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
         res.bit_move
     }
 
+    /// Alpha-Beta search with negamax framework.
+    /// Returns the best ScoringMove found.
+    /// - `alpha`: lower bound of the search window
+    /// Alpha is the best known guaranteed score for the maximizing player.
+    /// - `beta`: upper bound of the search window
+    /// Beta is the best known guaranteed score for the minimizing player.
+    /// Beta means, the opponent can force us to have at most this score.
     fn alpha_beta(
         &mut self,
         board: &mut Board,
@@ -224,6 +235,9 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
         ply: u8,
         tt: &TranspositionTable,
     ) -> ScoringMove {
+        if board.fifty_move_rule() || board.threefold_repetition() {
+            return ScoringMove::blank(DRAW_V);
+        }
         let mut all_moves = board.generate_moves();
 
         if all_moves.len() == 0 {
@@ -238,36 +252,51 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
         }
 
         if depth <= 0 {
+            // return ScoringMove::new_score(NULL_BIT_MOVE, UNREACHABLE_V);
             return ScoringMove::blank(self.quiescence_search(board, alpha, beta, ply, depth, tt));
         } else if depth > 1 && self.time_up() {
             //Allow the search to finish when we are deep enough
-            return ScoringMove::new_score(NULL_BIT_MOVE, UNREACHABLE_V);
+            // return ScoringMove::new_score(NULL_BIT_MOVE, UNREACHABLE_V);
+            // TODO: Codex suggested use alpha to not poison the tt as search ends
+            // don't think it matters?
+            return ScoringMove::new_score(NULL_BIT_MOVE, alpha);
         }
 
         let zobrist = board.zobrist();
         let (tt_hit, tt_entry): (bool, &mut Entry) = tt.probe(zobrist);
 
         let mut board_score = self.eval(board);
-        // Check for TT Match
-        if tt_hit && !tt_entry.best_move.is_null() {
-            //If This entry was found earlier than the current
-            if tt_entry.depth >= depth &&
-            //And the node is valid given our current beta
-            correct_bound_eq(tt_entry.score, beta, tt_entry.node_type())
-            {
+        // Try to use TT entry if available
+        if tt_hit {
+            let tt_score = tt_entry.score;
+            let tt_depth = tt_entry.depth as i8;
+            let tt_bound = tt_entry.node_type();
+
+            // Try to use TT for immediate cutoff or exact result
+            if let Some(res_score) = tt_maybe_cutoff(
+                tt_score,
+                tt_depth,
+                depth,
+                alpha,
+                beta,
+                tt_bound,
+            ) {
+                // If there's a stored best move, use it; otherwise, null move is fine.
                 return ScoringMove {
                     bit_move: tt_entry.best_move,
-                    score: tt_entry.score,
+                    score: res_score,
                 };
             }
 
-            if correct_bound(tt_entry.score, board_score, tt_entry.node_type()) {
-                board_score = tt_entry.score;
+            // Otherwise, we can still use TT to refine our static evaluation
+            if tt_can_improve_static(tt_score, board_score, tt_bound) {
+                board_score = tt_score;
             }
         } else if depth > 3 {
-            //Internal iterative reduction, will revisit if tt visits again
+            // Internal iterative reduction only when there is truly *no* TT info
             depth -= 1;
         }
+
 
         if !tt_hit {
             self.nodes_explored += 1;
@@ -291,8 +320,7 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
 
         let mut best_move = BitMove::null();
         let mut best_score = NEG_INF_V;
-
-        let mut tt_flag = NodeBound::UpperBound;
+        let alpha_orig = alpha;
 
         for mv in &all_moves {
             tt.prefetch(board.key_after(mv));
@@ -311,15 +339,23 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
 
                     //Only set alpha when eval in bounds?
                     alpha = eval.score;
-                    tt_flag = NodeBound::Exact;
 
                     if eval.score >= beta {
-                        tt_flag = NodeBound::LowerBound;
                         break;
                     }
                 }
             }
         }
+        let tt_flag = if best_score <= alpha_orig {
+            // The true minimax score is at MOST the tt value
+            NodeBound::UpperBound // fail-low
+        } else if best_score >= beta {
+            // The true minimax score is at LEAST the tt value
+            NodeBound::LowerBound // fail-high
+        } else {
+            // The true minimax score of this position is EXACTLY the tt value
+            NodeBound::Exact      // in-window
+        };
 
         if tt_flag == NodeBound::Exact {
             self.pv_moves[ply as usize] = ScoringMove {
@@ -328,6 +364,7 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
             };
         }
 
+        // TODO: codex wants to block with timeup here
         tt_entry.place(
             zobrist,
             best_move,
@@ -359,36 +396,49 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
         depth: i8,
         tt: &TranspositionTable,
     ) -> MyVal {
-        let static_eval = self.eval(board);
-        if static_eval >= beta {
-            return static_eval;
+        if board.fifty_move_rule() || board.threefold_repetition() {
+            return DRAW_V;
         }
-
-        if depth == -5 {
-            return static_eval;
-        }
-
-        let mut best = static_eval;
-
-        //Check if we can even improve this position by the largest swing
-        let mut max_swing = alpha as i32 - QUEEN_VALUE as i32; //Evaluate as i32 in case where alpha is mate or uninit
-        if let Some(mv) = board.last_move() {
-            if mv.is_promo() {
-                max_swing -= 750;
-            }
-        }
-        if (best as i32) < max_swing {
-            // if hard_fail {
-            //     return alpha;
-            // }
-            return best;
-        }
-
-        if static_eval > alpha {
-            alpha = static_eval;
-        }
-
         let in_check = board.in_check();
+        let static_eval = self.eval(board);
+
+        // Stand-pat only if *not* in check
+        if !in_check {
+            if static_eval >= beta {
+                return static_eval;
+            }
+            if static_eval > alpha {
+                alpha = static_eval;
+            }
+
+            // Delta pruning: if even the largest plausible material gain can't raise
+            // us from `static_eval` up to `alpha`, prune.
+            //
+            // Condition is: static_eval + MAX_GAIN < alpha  => prune
+            //TODO: Should i really be casting everywhere as i32
+            let mut max_gain: i32 = QUEEN_VALUE as i32; // crude upper bound
+
+            if let Some(mv) = board.last_move() {
+                if mv.is_promo() {
+                    // Promotion means even more possible gain, so *increase* max_gain,
+                    // making pruning harder, not easier.
+                    max_gain += QUEEN_VALUE as i32;
+                }
+            }
+
+            if (static_eval as i32) + max_gain < alpha as i32 {
+                return static_eval;
+            }
+        } else {
+            // When in check, skip stand-pat and delta pruning:
+            // we are forced to find an evasion.
+        }
+
+        if depth == -3 && !in_check {
+            return static_eval;
+        }
+
+        let mut best = if in_check { NEG_INF_V } else { static_eval };
 
         let non_quiets = if in_check {
             board.generate_moves_of_type(GenTypes::Evasions)
@@ -437,6 +487,10 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
     }
 }
 
+pub fn start_search_quiet(board: &mut Board) -> BitMove {
+    let mut searcher = MySearcher::new(NoTrace::new(), Some(250));
+    searcher.find_best_move(board, MAX_PLY as u8)
+}
 pub fn start_search(board: &mut Board) -> BitMove {
     let mut searcher = MySearcher::new(Trace::new(), Some(1000));
 
@@ -484,6 +538,60 @@ fn correct_bound(tt_value: MyVal, val: MyVal, bound: NodeBound) -> bool {
     }
 }
 
+/// Decide if a TT entry allows immediate cutoff at this node.
+/// Returns Some(score) if we can return immediately, None otherwise.
+#[inline(always)]
+fn tt_maybe_cutoff(
+    tt_value: MyVal,
+    depth_in_table: i8,
+    needed_depth: i8,
+    alpha: MyVal,
+    beta: MyVal,
+    bound: NodeBound,
+) -> Option<MyVal> {
+    if depth_in_table < needed_depth {
+        return None;
+    }
+
+    match bound {
+        NodeBound::Exact => {
+            // Full information: score is exact in [alpha, beta).
+            Some(tt_value)
+        }
+        NodeBound::LowerBound => {
+            // True score >= tt_value
+            if tt_value >= beta {
+                // Fail-high cutoff
+                Some(tt_value)
+            } else {
+                None
+            }
+        }
+        NodeBound::UpperBound => {
+            // True score <= tt_value
+            if tt_value <= alpha {
+                // Fail-low cutoff
+                Some(tt_value)
+            } else {
+                None
+            }
+        }
+        _ => None, // just in case there are other variants
+    }
+}
+
+/// Decide if the TT value is a better *static* approximation than `current_val`
+/// without implying it's exact. Used to refine board_score.
+#[inline(always)]
+fn tt_can_improve_static(tt_value: MyVal, current_val: MyVal, bound: NodeBound) -> bool {
+    match bound {
+        NodeBound::LowerBound => tt_value > current_val,
+        NodeBound::UpperBound => tt_value < current_val,
+        NodeBound::Exact => true,
+        _ => false,
+    }
+}
+
 fn get_capture_score(board: &Board, mv: &BitMove) -> MyVal {
     let attacker = board.piece_at_sq(mv.get_src());
     let dest = if mv.is_en_passant() {
@@ -521,6 +629,11 @@ mod tests {
         let mut board = Board::from_fen(fen).unwrap();
         let mut searcher = MySearcher::trace(Trace::new());
         searcher.find_best_move(&mut board, 5)
+    }
+    fn ev_depth(fen: &str, depth: u8) -> BitMove {
+        let mut board = Board::from_fen(fen).unwrap();
+        let mut searcher = MySearcher::trace(Trace::new());
+        searcher.find_best_move(&mut board, depth)
     }
 
     #[test]
@@ -608,6 +721,25 @@ mod tests {
     #[allow(unused)]
     fn test_mate_in_3() {
         //"NR5r/3P1rpk/2n2P1p/pnP1Qq2/P1RPbP1N/BP1B1pKP/p1pp3p/b7 w - - 0 1"
+    }
+
+    #[test]
+    fn test_black_avoids_mate() {
+        //This position, black has been blundering mate
+        //1k1rr3/pp3p1Q/5q2/P7/4n1B1/1P1p3P/3P1PP1/1R3K1R w - - 2 25
+        let fen = "1k1rr3/pp3p1Q/5q2/P7/4n1B1/1P1p3P/3P1PP1/1R3K1R w - - 2 25";
+        let mv = ev_depth(fen, 5);
+        println!("MV = {mv}");
+        // assert!(mv.get_src_u8() == 55 && mv.get_dest_u8() == 28);
+    }
+
+    #[test]
+    fn test_force_stalemate() {
+        //This position, white just has to take the pawn on g6 to force draw
+        //1r3rk1/5p2/5Qpp/2q5/n1b5/P7/1P6/K5R1 w - - 3 3
+        let fen = "1r3rk1/5p2/5Qpp/2q5/n1b5/P7/1P6/K5R1 w - - 3 3";
+        let mv = ev(fen);
+        println!("MV = {mv}");
     }
 }
 // pub fn search_root(&mut self, board: &mut Board, max_ply: u8) -> BitMove {

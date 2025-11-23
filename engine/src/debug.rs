@@ -14,7 +14,7 @@ pub enum EvalPasses {
     Queen = 4,
     King = 5,
     Material = 6,
-    Imbalance = 7,
+    Misc = 7,
     Mobility = 8,
     Threat = 9,
     PawnStructure = 10,
@@ -63,8 +63,8 @@ impl Entry {
 impl Display for Entry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.ev_type {
-            EvalPasses::Material
-            | EvalPasses::Imbalance
+            // EvalPasses::Material
+            // | EvalPasses::Misc
             // | EvalPasses::Initiative
             | EvalPasses::Total => write!(f, " ----  ---- |  ----  ----")?,
             _ => write!(f, "{} | {}", score_str(self.white_score), score_str(self.black_score))?,
@@ -146,7 +146,7 @@ impl Display for EvalDebugger {
         writeln!(f, "             |   MG    EG  |   MG    EG  |   MG    EG")?;
         writeln!(f, " ------------+-------------+-------------+-----------")?;
         writeln!(f, "    Material | {}", self.eval(EvalPasses::Material))?;
-        writeln!(f, "   Imbalance | {}", self.eval(EvalPasses::Imbalance))?;
+        writeln!(f, "   Imbalance | {}", self.eval(EvalPasses::Misc))?;
         // writeln!(f, "  Initiative | {}", self.term(EvalPasses::Initiative))?;
         writeln!(f, "       Pawns | {}", self.eval(EvalPasses::Pawn))?;
         writeln!(f, "     Knights | {}", self.eval(EvalPasses::Knight))?;

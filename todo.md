@@ -5,6 +5,15 @@
 - host for real
 - debug positions and expected moves
 - after refinement, parallelize?
+- Blundered mate 1k1rr3/pp3p1Q/5q2/P7/4n1B1/1P1p3P/3P1PP1/1R3K1R w - - 2 25
+    https://www.chess.com/analysis/game/computer/461571475/review?move=47&move=47&tab=review&classification=greatfind&autorun=true
+- should i modify the search to return eval? Then send eval with best move to frontend?
+- white to move, blunders c2c4 2rq1rk1/4pp2/p1n4p/1pPN1b2/3P2p1/P7/1PP1BPPP/R2QK2R w KQ - 1 20
+- white to move, blunders f2f4 leading to draw 8/5p1k/6pp/4q3/P3P3/6P1/2Q2P2/6K1 w - - 1 37
+- PGO optimization for compilation
+- blunders b4b2 leading to M8 when advantage 2kr3r/p4p2/3Bb2p/nPp3p1/1q6/P2Q1P2/6PP/2R1R2K b - - 0 29
+
+- delete pleco eval, cleanup everything. Run new engine versus those old scenarios
 
 ## Move Optimization
 

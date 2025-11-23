@@ -1,4 +1,6 @@
 pub mod searching;
+pub mod ai_search;
+pub mod final_search;
 pub mod consts;
 pub mod debug;
 
