@@ -430,8 +430,7 @@ impl TranspositionTable {
     /// Returns the % of the hash table that is full.
     pub fn hash_percent(&self) -> f64 {
         unsafe {
-            // let clusters_scanned: u64 = min((*self.cap.get() - 1) as u64, 333);
-            let clusters_scanned: u64 = (*self.cap.get() - 1) as u64;
+            let clusters_scanned: u64 = min((*self.cap.get() - 1) as u64, 333);
             let mut hits: f64 = 0.0;
 
             for i in 0..clusters_scanned {
