@@ -32,7 +32,8 @@ const INF_V: MyVal = INFINITE as MyVal;
 
 const NULL_BIT_MOVE: BitMove = BitMove::null();
 
-const TT_ENTRIES: usize = 200_000;
+// const TT_ENTRIES: usize = 170_000; // Enough to use 16 MB of memory
+const TT_ENTRIES: usize = 500_000;
 pub const MAX_PLY: usize = 31;
 const NUM_SQUARES: usize = 64;
 
@@ -74,6 +75,22 @@ pub struct MySearcher<T: Tracing<SearchDebugger>> {
 }
 
 pub const NULL_SCORE: ScoringMove = ScoringMove::null();
+
+// Public API (unchanged)
+pub fn search_to_depth(board: &mut Board , ply : u8) -> BitMove {
+    let mut searcher = MySearcher::new(NoTrace::new(), None);
+    searcher.find_best_move(board, ply)
+}
+
+pub fn start_search(board: &mut Board) -> BitMove {
+    let mut searcher = MySearcher::new(Trace::new(), Some(1000));
+    searcher.find_best_move(board, MAX_PLY as u8)
+}
+
+pub fn eval_search(board: &mut Board) -> f64 {
+    let mut searcher = MySearcher::new(NoTrace::new(), Some(1000));
+    searcher.search_eval(board, MAX_PLY as u8)
+}
 
 impl<T: Tracing<SearchDebugger>> MySearcher<T> {
     pub fn new(tracer: T, time_limit: Option<u128>) -> Self {
@@ -284,6 +301,8 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
                 println!("Mate Found At Depth = {reached_depth}");
             }
         }
+        // println!("TT Percent = {}", self.tt.hash_percent());
+        // println!("REACHED DEPTH {reached_depth}");
 
         best_move
     }
@@ -772,25 +791,6 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
     }
 }
 
-// Public API (unchanged)
-pub fn start_search_quiet(board: &mut Board) -> BitMove {
-    let mut searcher = MySearcher::new(NoTrace::new(), Some(250));
-    searcher.find_best_move(board, MAX_PLY as u8)
-}
-pub fn search_to_depth(board: &mut Board , ply : u8) -> BitMove {
-    let mut searcher = MySearcher::new(NoTrace::new(), None);
-    searcher.find_best_move(board, ply)
-}
-
-pub fn start_search(board: &mut Board) -> BitMove {
-    let mut searcher = MySearcher::new(Trace::new(), Some(1000));
-    searcher.find_best_move(board, MAX_PLY as u8)
-}
-
-pub fn eval_search(board: &mut Board) -> f64 {
-    let mut searcher = MySearcher::new(NoTrace::new(), Some(1000));
-    searcher.search_eval(board, MAX_PLY as u8)
-}
 
 #[inline(always)]
 fn mate_in(ply: u8) -> MyVal {
@@ -944,4 +944,26 @@ fn get_capture_score(board: &Board, mv: &BitMove) -> MyVal {
     }
 
     MVV_LVA[attacker.type_of() as usize - 1][captured.type_of() as usize - 1]
+}
+
+#[cfg(test)]
+mod tests {
+    use pleco::{BitMove, Board};
+
+    use crate::{debug::Trace, debug::Tracing, final_search::MySearcher};   
+    fn ev_depth(fen: &str, depth: u8) -> BitMove {
+        let mut board = Board::from_fen(fen).unwrap();
+        let mut searcher = MySearcher::trace(Trace::new());
+        searcher.find_best_move(&mut board, depth)
+    }
+
+    #[test]
+    fn test_black_avoids_mate() {
+        //This position, black has been blundering mate
+        //1k1rr3/pp3p1Q/5q2/P7/4n1B1/1P1p3P/3P1PP1/1R3K1R w - - 2 25
+        let fen = "1k1rr3/pp3p1Q/5q2/P7/4n1B1/1P1p3P/3P1PP1/1R3K1R w - - 2 25";
+        let mv = ev_depth(fen, 5);
+        println!("MV = {mv}");
+        // assert!(mv.get_src_u8() == 55 && mv.get_dest_u8() == 28);
+    }
 }
