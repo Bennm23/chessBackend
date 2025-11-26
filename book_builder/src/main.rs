@@ -1,7 +1,7 @@
 mod lumbras;
 mod utils;
 
-use book::{print_book, save_book_to_ron};
+use book::{save_book_to_ron};
 use lumbras::load_lumbras_book;
 
 fn main() {
@@ -20,7 +20,6 @@ fn main() {
 
     if let Some(book) = book {
         println!("Loaded book with {} positions.", book.len());
-        // print_book(&book);
         save_book_to_ron(&book, &out_name).expect("Failed to Save ron");
     } else {
         println!("Failed to load book.");

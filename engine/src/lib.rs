@@ -1,5 +1,6 @@
 pub mod searching;
 pub mod final_search;
+pub mod search_test;
 pub mod consts;
 pub mod debug;
 

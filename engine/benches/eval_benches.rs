@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use criterion::{black_box, criterion_group, BatchSize, Bencher, Criterion};
 use engine::{
-    evaluation::eval_board,
+    evaluation::eval_board_ai as eval_board,
     tables::{material::Material, pawn_table::PawnTable},
 };
 use pleco::Board;
@@ -34,8 +34,8 @@ fn bench_engine_evaluations(c: &mut Criterion) {
 
 criterion_group!(name = eval_benches;
     config = Criterion::default()
-       .sample_size(100)
-       .warm_up_time(Duration::from_millis(20));
+       .sample_size(250)
+       .warm_up_time(Duration::from_millis(40));
    targets = bench_engine_evaluations
 );
 

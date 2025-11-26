@@ -32,7 +32,11 @@ ssh $HOST "chmod +x $BASE/releases/$REL/$BINARY_NAME"
 echo "Updating current symlink..."
 ssh $HOST "sudo ln -sfn $BASE/releases/$REL $BASE/current"
 
-# === STEP 6: Restart backend service ===
+# === STEP 6: Upload Book ===
+echo "Uploading opening book..."
+rsync -avz "./book.ron" "$HOST:/home/deploy/book.ron"
+
+# === STEP 7: Restart backend service ===
 echo "Restarting backend systemd service..."
 ssh $HOST "sudo systemctl restart chess-backend"
 
