@@ -1,3 +1,5 @@
+use book::Book;
+use pleco::BitMove;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -21,11 +23,16 @@ use axum::{
     Router,
 };
 use futures::StreamExt;
-use std::net::SocketAddr;
+use std::{env, net::SocketAddr};
 use tower_http::cors::{Any, CorsLayer};
 
-mod test_ops;
+// mod test_ops;
 
+static BOOK: std::sync::LazyLock<Book> = std::sync::LazyLock::new(
+    || book::load_from_ron(
+        &env::var("OPENING_BOOK").unwrap_or_else(|_| "/home/deploy/book.ron".to_string())
+    )
+);
 
 async fn backend() {
     // Configure CORS to allow requests from Vite frontend
@@ -39,9 +46,9 @@ async fn backend() {
         .allow_methods(Any)
         .allow_headers(Any);
 
-    let app = Router::new().route("/", get(ws_handler)).layer(cors);
+    let app = Router::new().route("/ws", get(ws_handler)).layer(cors);
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     println!("Server running at ws://{}", addr);
     axum::serve(listener, app).await.unwrap();
@@ -49,8 +56,8 @@ async fn backend() {
 
 #[tokio::main]
 async fn main() {
-    test_ops::test_suite();
-    // backend().await;
+    // test_ops::test_suite();
+    backend().await;
 }
 
 // Blundered mate 1k1rr3/pp3p1Q/5q2/P7/4n1B1/1P1p3P/3P1PP1/1R3K1R w - - 2 25
@@ -67,8 +74,44 @@ async fn handle_socket(mut socket: WebSocket) {
                 Ok(ClientMessage::GetBestMove { fen }) => {
                     println!("Received FEN: {}", fen);
 
-                    let mut board = pleco::Board::from_fen(&fen).expect("Board Fen Create Failed");
-                    let mv = engine::final_search::start_search(&mut board);
+                    let mut board = match pleco::Board::from_fen(&fen) {
+                        Ok(b) => b,
+                        Err(e) => {
+                            let err = ServerMessage::Error {
+                                message: format!("Invalid FEN: {:?}", e),
+                            };
+                            let err_text = serde_json::to_string(&err).unwrap();
+                            if socket.send(Message::Text(err_text.into())).await.is_err() {
+                                break;
+                            }
+                            continue;
+                        }
+                    };
+                    
+                    let mut book_opt: Option<BitMove> = None;
+
+                    if board.moves_played() <= 10 {
+                        println!("Checking book for move...");
+                        // Check book first
+                        if let Some(book_move) = book::get_book_move(&BOOK, &fen) {
+                            println!("Book move found: {}", book_move);
+                            let applied = board.apply_uci_move(&book_move);
+                            if applied {
+                                book_opt = board.last_move();
+                                if book_opt.is_none() {
+                                    println!("Book move was not valid: {}", book_move);
+                                }
+                            } else {
+                                println!("Failed to apply book move: {}", book_move);
+                            }
+                        } else {
+                            println!("No book move found.");
+                        }
+                    }
+                    let mv = match book_opt {
+                        Some(bm) => bm,
+                        None => engine::final_search::start_search(&mut board),
+                    };
 
                     // Dummy best move logic
                     let best_move = ServerMessage::BestMove {

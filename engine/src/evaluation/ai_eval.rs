@@ -16,13 +16,13 @@ use crate::{
     tables::{material::Material, pawn_table::PawnTable},
 };
 
+const MIDGAME_PHASE_LIMIT: EvalVal = 15258;
+const ENDGAME_PHASE_LIMIT: EvalVal = 3915;
 fn phase(board: &Board) -> EvalVal {
     // Based on non-pawn material.
-    let midgame_limit = 15258;
-    let endgame_limit = 3915;
     let mut npm = board.non_pawn_material_all();
-    npm = endgame_limit.max(npm.min(midgame_limit));
-    (((npm - endgame_limit) * MAX_PHASE as i32) / (midgame_limit - endgame_limit)) as EvalVal
+    npm = ENDGAME_PHASE_LIMIT.max(npm.min(MIDGAME_PHASE_LIMIT));
+    (((npm - ENDGAME_PHASE_LIMIT) * MAX_PHASE as i32) / (MIDGAME_PHASE_LIMIT - ENDGAME_PHASE_LIMIT)) as EvalVal
 }
 
 // --- Extra tuning constants (you can tweak these) ---
@@ -244,6 +244,7 @@ impl<'a, T: Tracing<EvalDebugger>> BasicEvaluator<'a, T> {
     }
 
     /// Base piece values (MG/EG), *not* pre-scaled by phase.
+    #[inline(always)]
     fn get_raw_piece_val(&self, piece: PieceType) -> Score {
         match piece {
             PieceType::P => Score::new(PAWN_MG, PAWN_EG),

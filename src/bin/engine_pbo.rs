@@ -6,18 +6,18 @@ use engine::{debug::{NoTrace, Tracing}, final_search::MySearcher};
 use pleco::{BitMove, Board};
 
 /// PGO depths — tuned for "realistic but not insane" workloads.
-const OPENING_DEPTH: u8 = 8;
-const MIDGAME_DEPTH: u8 = 9;
-const ENDGAME_DEPTH: u8 = 12;
-const TACTICAL_DEPTH: u8 = 10;
-const SELFPLAY_DEPTHS: [u8; 3] = [6, 8, 10];
+const OPENING_DEPTH: u8 = 9;
+const MIDGAME_DEPTH: u8 = 10;
+const ENDGAME_DEPTH: u8 = 13;
+const TACTICAL_DEPTH: u8 = 11;
+const SELFPLAY_DEPTHS: [u8; 3] = [7, 9, 11];
 
 /// How many times to search each FEN (per depth).
 const REPEATS_PER_FEN: usize = 1;
 
 /// Self-play parameters.
 const SELFPLAY_GAMES: usize = 3;
-const SELFPLAY_MAX_PLIES: usize = 40;
+const SELFPLAY_MAX_PLIES: usize = 60;
 
 /// A small starter set of FENs.
 /// - First N: opening-ish positions
@@ -343,35 +343,35 @@ fn run_self_play() {
     }
     println!("Start Position Took {} seconds", start.elapsed().as_secs_f32());
 
-    // println!("Playing Self from Balanced Openings");
-    // for (game_idx, &fen) in EARLY_BALANCED_FENS.iter().enumerate() {
-    //     let mut board = Board::from_fen(fen)
-    //         .unwrap_or_else(|_| panic!("Invalid FEN in PGO set: {fen}"));
-    //     self_play_single_game(game_idx, &mut board);
-    // }
-    // println!("Balanced Openings Took {} seconds", start.elapsed().as_secs_f32());
+    println!("Playing Self from Balanced Openings");
+    for (game_idx, &fen) in EARLY_BALANCED_FENS.iter().enumerate() {
+        let mut board = Board::from_fen(fen)
+            .unwrap_or_else(|_| panic!("Invalid FEN in PGO set: {fen}"));
+        self_play_single_game(game_idx, &mut board);
+    }
+    println!("Balanced Openings Took {} seconds", start.elapsed().as_secs_f32());
 
     println!("Playing Self from Tactical Positions");
-    for (game_idx, &fen) in FENS_TACTICAL.iter().take(SELFPLAY_GAMES).enumerate() {
+    for (game_idx, &fen) in FENS_TACTICAL.iter().enumerate() {
         let mut board = Board::from_fen(fen)
             .unwrap_or_else(|_| panic!("Invalid FEN in PGO set: {fen}"));
         self_play_single_game(game_idx, &mut board);
     }
     println!("Tactical Positions Took {} seconds", start.elapsed().as_secs_f32());
-    // println!("Playing Self from Midgame Positions");
-    // for (game_idx, &fen) in FENS_MIDGAME.iter().enumerate() {
-    //     let mut board = Board::from_fen(fen)
-    //         .unwrap_or_else(|_| panic!("Invalid FEN in PGO set: {fen}"));
-    //     self_play_single_game(game_idx, &mut board);
-    // }
-    // println!("Midgame Positions Took {} seconds", start.elapsed().as_secs_f32());
-    // println!("Playing Self from Endgame Positions");
-    // for (game_idx, &fen) in FENS_ENDGAME.iter().enumerate() {
-    //     let mut board = Board::from_fen(fen)
-    //         .unwrap_or_else(|_| panic!("Invalid FEN in PGO set: {fen}"));
-    //     self_play_single_game(game_idx, &mut board);
-    // }
-    // println!("Endgame Positions Took {} seconds", start.elapsed().as_secs_f32());
+    println!("Playing Self from Midgame Positions");
+    for (game_idx, &fen) in FENS_MIDGAME.iter().enumerate() {
+        let mut board = Board::from_fen(fen)
+            .unwrap_or_else(|_| panic!("Invalid FEN in PGO set: {fen}"));
+        self_play_single_game(game_idx, &mut board);
+    }
+    println!("Midgame Positions Took {} seconds", start.elapsed().as_secs_f32());
+    println!("Playing Self from Endgame Positions");
+    for (game_idx, &fen) in FENS_ENDGAME.iter().enumerate() {
+        let mut board = Board::from_fen(fen)
+            .unwrap_or_else(|_| panic!("Invalid FEN in PGO set: {fen}"));
+        self_play_single_game(game_idx, &mut board);
+    }
+    println!("Endgame Positions Took {} seconds", start.elapsed().as_secs_f32());
 }
 
 fn self_play_single_game(game_idx: usize, board: &mut Board) {

@@ -77,8 +77,8 @@ pub struct MySearcher<T: Tracing<SearchDebugger>> {
 pub const NULL_SCORE: ScoringMove = ScoringMove::null();
 
 // Public API (unchanged)
-pub fn search_to_depth(board: &mut Board , ply : u8) -> BitMove {
-    let mut searcher = MySearcher::new(NoTrace::new(), None);
+pub fn search_to_depth_and_time(board: &mut Board, ply: u8, time: Option<u128>) -> BitMove {
+    let mut searcher = MySearcher::new(NoTrace::new(), time);
     searcher.find_best_move(board, ply)
 }
 

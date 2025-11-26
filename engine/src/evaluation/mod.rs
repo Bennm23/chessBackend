@@ -19,6 +19,7 @@ pub fn eval_board(board: &Board, pawn_table: &mut PawnTable, material: &mut Mate
     }
     res
 }
+
 pub fn eval_board_ai(board: &Board, pawn_table: &mut PawnTable, material: &mut Material) -> EvalVal {
     let mut evaluator = ai_eval::BasicEvaluator::new(
         board,

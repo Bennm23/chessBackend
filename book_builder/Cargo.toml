@@ -1,0 +1,20 @@
+[package]
+name = "book_builder"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pleco = { path="../pleco" }
+book = { path = "../book" }
+chess = "3.2.0"
+serde = "1.0.228"
+pgn-reader = "0.28.0"
+
+[profile.release]
+opt-level = 3
+debug = false
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = "fat"
+incremental = false

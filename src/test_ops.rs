@@ -1,5 +1,7 @@
 use std::time::Instant;
 
+use rand::random_bool;
+
 #[allow(unused)]
 pub const TRAINING_FENS: [&str; 1000] = [
     "rnb1kbnr/pp1ppp2/6pp/q1p5/P1P5/6P1/1P1PPP1P/RNBQKBNR w - - 0 1",
@@ -1095,7 +1097,7 @@ pub const EARLY_BALANCED_FENS: [&str; 86] = [
 ];
 
 #[allow(unused)]
-pub const EARLY_COMMON_FENS: [&str; 89] = [
+pub const EARLY_COMMON_FENS: &[&str] = &[
     "rnbqkbnr/pppppppp/8/4P3/8/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
     "rnbqkbnr/pppp1ppp/8/4p3/8/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2",
     "rnbqkbnr/pppp1ppp/8/4p3/8/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2",
@@ -1113,22 +1115,18 @@ pub const EARLY_COMMON_FENS: [&str; 89] = [
     "r1bqkbnr/1ppp1ppp/p1n5/4p3/8/3B1N2/PPPP1PPP/RNBQK2R b KQkq - 1 4",
     "r1bqkb1r/1ppp1ppp/p1n2n2/4p3/8/3B1N2/PPPP1PPP/RNBQK2R w KQkq - 2 5",
     "rnbqkbnr/pppppppp/8/4P3/8/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
-    "rnbqkbnr/pp1ppppp/2p5/4P3/8/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2",
     "rnbqkbnr/pp1ppppp/2p5/4P3/8/3P4/PPP2PPP/RNBQKBNR b KQkq - 0 2",
     "rnbqkbnr/pp1ppppp/8/2p1P3/8/3P4/PPP2PPP/RNBQKBNR w KQkq c6 0 3",
     "rnbqkbnr/pp1ppppp/8/2P1P3/8/8/PPP2PPP/RNBQKBNR b KQkq - 0 3",
     "rnbqkbnr/pp1ppppp/8/2P1P3/8/5N2/PPP2PPP/RNBQKB1R w KQkq - 1 4",
     "rnbqkbnr/pp1ppppp/8/2P1P3/2B5/5N2/PPP2PPP/RNBQK2R b KQkq - 2 4",
     "rnbqkbnr/pppppppp/8/3P4/8/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1",
-    "rnbqkbnr/ppp1pppp/3p4/3P4/8/8/PPP1PPPP/RNBQKBNR w KQkq d6 0 2",
     "rnbqkbnr/ppp1pppp/3p4/3P4/8/4P3/PPP2PPP/RNBQKBNR b KQkq - 0 2",
     "rnbqkb1r/ppp1pppp/5n2/3P4/8/4P3/PPP2PPP/RNBQKBNR w KQkq - 1 3",
     "rnbqkb1r/ppp1pppp/5n2/3P4/8/4P3/PPPN1PPP/R1BQKBNR b KQkq - 2 3",
     "rnbqkb1r/ppp1pppp/5n2/3P4/8/4P3/PPPN1PPP/R1BQKB1R w Qkq - 3 4",
     "rnbqkb1r/ppp1pppp/5n2/3P4/8/4PP2/PPPN2PP/R1BQKB1R b Qkq - 0 4",
     "rnbqkbnr/pppppppp/8/8/2P5/8/PP1PPPPP/RNBQKBNR b KQkq - 0 1",
-    "rnbqkbnr/pp2pppp/2pp4/8/2P5/8/PP1PPPPP/RNBQKBNR w KQkq d6 0 2",
-    "rnbqkbnr/pp2pppp/2pp4/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq c5 0 2",
     "rnbqkbnr/pp2pppp/2pp4/8/2PP4/5N2/PP2PPPP/RNBQKB1R w KQkq - 1 3",
     "rnbqkbnr/pp2pppp/2pp4/8/2PP4/5NP1/PP2PP1P/RNBQKB1R b KQkq - 0 3",
     "rnbqk1nr/pp2ppbp/2pp2p1/8/2PP4/5NP1/PP2PP1P/RNBQKB1R w KQkq - 1 4",
@@ -1136,60 +1134,39 @@ pub const EARLY_COMMON_FENS: [&str; 89] = [
     "rnbqk1nr/pp3pbp/2pp2p1/4p3/2PPP3/5NP1/PP3P1P/RNBQKB1R w KQkq - 0 5",
     "rnbqk1nr/pp3pbp/2pp2p1/4p3/2PPP3/4BNP1/PP3P1P/RN1QKB1R b KQkq - 1 5",
     "rnbqkbnr/pppppppp/8/3P4/8/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1",
-    "rnbqkbnr/ppp1pppp/3p4/3P4/8/8/PPP1PPPP/RNBQKBNR w KQkq d6 0 2",
     "rnbqkbnr/ppp1pppp/3p4/3P4/8/P7/1PP1PPPP/RNBQKBNR b KQkq - 0 2",
-    "rnbqkbnr/pp2pppp/2p5/3P4/8/P7/1PP1PPPP/RNBQKBNR w KQkq c6 0 3",
     "rnbqkbnr/pp2pppp/2p5/3P4/8/PP6/2P1PPPP/RNBQKBNR b KQkq - 0 3",
-    "rnbqkbnr/pp2pppp/8/2pP4/8/PP6/2P1PPPP/RNBQKBNR w KQkq c6 0 4",
     "rnbqkbnr/pp2pppp/8/2PP4/8/1P6/2P1PPPP/RNBQKBNR b KQkq - 0 4",
-    "rnbqkbnr/pp3ppp/4pp2/2PP4/8/1P6/2P1PPPP/RNBQKBNR w KQkq e6 0 5",
     "rnbqkbnr/pp3ppp/4pp2/2PP4/8/1P3N2/2P1PPPP/RNBQKB1R b KQkq - 1 5",
     "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1",
-    "rnbqkbnr/pp1ppppp/2p5/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq c6 0 2",
-    "rnbqkbnr/pp1ppppp/2p5/8/3PP3/8/PPP2PPP/RNBQKBNR b KQkq d6 0 2",
-    "rnbqkbnr/pp1ppppp/8/2p5/3PP3/8/PPP2PPP/RNBQKBNR w KQkq c6 0 3",
     "rnbqkbnr/pp1ppppp/8/2P5/4P3/8/PPP2PPP/RNBQKBNR b KQkq - 0 3",
-    "rnbqkbnr/pp2pppp/2p5/2P5/4P3/8/PPP2PPP/RNBQKBNR w KQkq c6 0 4",
     "rnbqkbnr/pp2pppp/2p5/2P5/4P3/2N5/PPP2PPP/R1BQKBNR b KQkq - 1 4",
-    "rnbqkbnr/pp3ppp/2p1p3/2P5/4P3/2N5/PPP2PPP/R1BQKBNR w KQkq e6 0 5",
     "rnbqkbnr/pp3ppp/2p1p3/2P5/4P3/2N2N2/PPP2PPP/R1BQKB1R b KQkq - 1 5",
     "rnbqkbnr/pppppppp/8/8/2P5/8/PP1PPPPP/RNBQKBNR b KQkq - 0 1",
-    "rnbqkbnr/pp1ppppp/2p5/8/2P5/8/PP1PPPPP/RNBQKBNR w KQkq c6 0 2",
-    "rnbqkbnr/pp1ppppp/2p5/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq d6 0 2",
-    "rnbqkbnr/pp1ppppp/8/2p5/2PP4/8/PP2PPPP/RNBQKBNR w KQkq c6 0 3",
     "rnbqkbnr/pp1ppppp/8/2P5/3P4/8/PP2PPPP/RNBQKBNR b KQkq - 0 3",
     "rnbqk1nr/pp1pppbp/8/2P5/3P4/8/PP2PPPP/RNBQKBNR w KQkq - 1 4",
     "rnbqk1nr/pp1pppbp/8/2P5/3P4/5N2/PP2PPPP/RNBQKB1R b KQkq - 2 4",
-    "rnbqk1nr/pp2ppbp/2p5/2P5/3P4/5N2/PP2PPPP/RNBQKB1R w KQkq c6 0 5",
     "rnbqk1nr/pp2ppbp/2p5/2P5/3P4/5NP1/PP2PP1P/RNBQKB1R b KQkq - 0 5",
     "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1",
-    "rnbqkbnr/ppp1pppp/3p4/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq d6 0 2",
-    "rnbqkbnr/ppp1pppp/3p4/8/3PP3/8/PPP2PPP/RNBQKBNR b KQkq e6 0 2",
-    "rnbqkbnr/ppp2ppp/3pp3/8/3PP3/8/PPP2PPP/RNBQKBNR w KQkq d6 0 3",
     "rnbqkbnr/ppp2ppp/3pp3/8/3PP3/2N5/PPP2PPP/R1BQKBNR b KQkq - 1 3",
-    "rnbqkbnr/ppp2ppp/4p3/3p4/3PP3/2N5/PPP2PPP/R1BQKBNR w KQkq d6 0 4",
     "rnbqkbnr/ppp2ppp/4p3/3p4/3PP3/2N2N2/PPP2PPP/R1BQKB1R b KQkq - 1 4",
     "rnbqk1nr/ppp2ppp/4p3/3p4/3PP3/2N2N2/PPP2PbP/R1BQKB1R w KQkq - 2 5",
     "rnbqk1nr/ppp2ppp/4p3/3p4/3PP3/2N2N2/PPP2PBP/R1BQK2R b KQkq - 3 5",
     "rnbqkbnr/pppppppp/8/8/2P5/8/PP1PPPPP/RNBQKBNR b KQkq - 0 1",
-    "rnbqkbnr/pp1ppppp/2p5/8/2P5/8/PP1PPPPP/RNBQKBNR w KQkq c6 0 2",
-    "rnbqkbnr/pp1ppppp/2p5/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq d6 0 2",
-    "rnbqkbnr/pp1ppppp/8/2p5/2PP4/8/PP2PPPP/RNBQKBNR w KQkq c6 0 3",
     "rnbqkbnr/pp1ppppp/8/2P5/3P4/8/PP2PPPP/RNBQKBNR b KQkq - 0 3",
     "rnbqk1nr/pp1pppbp/8/2P5/3P4/8/PP2PPPP/RNBQKBNR w KQkq - 1 4",
     "rnbqk1nr/pp1pppbp/8/2P5/3P4/4P3/PP3PPP/RNBQKBNR b KQkq - 0 4",
     "rnbqk1nr/pp1p1pbp/4p3/2P5/3P4/4P3/PP3PPP/RNBQKBNR w KQkq - 0 5",
     "rnbqk1nr/pp1p1pbp/4p3/2P5/3P4/4PP2/PP4PP/RNBQKBNR b KQkq - 0 5",
     "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1",
-    "rnbqkbnr/pppppp1p/6p1/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq g6 0 2",
-    "rnbqkbnr/pppppp1p/6p1/8/3PP3/8/PPP2PPP/RNBQKBNR b KQkq e6 0 2",
-    "rnbqkbnr/ppp1pp1p/3p2p1/8/3PP3/8/PPP2PPP/RNBQKBNR w KQkq d6 0 3",
     "rnbqkbnr/ppp1pp1p/3p2p1/8/3PP3/5N2/PPP2PPP/RNBQKB1R b KQkq - 1 3",
 ];
 
 #[allow(unused)]
 pub fn test_suite() {
-    const GAMES: usize = 86;
+    // const GAMES: usize = EARLY_BALANCED_FENS.len() + EARLY_COMMON_FENS.len();
+    const GAMES: usize = 10;
+    println!("Playing {} games...", GAMES);
 
     let mut new_is_white: bool = false;
     let start = Instant::now();
@@ -1198,33 +1175,63 @@ pub fn test_suite() {
     let mut old_wins = 0f32;
     let mut total_draws = 0;
 
+    let mut total_avg_move_times: f64 = 0f64;
     let mut important: Vec<String> = vec![];
 
-    for game in 0..GAMES {
-        // let mut board = pleco::Board::default();
-        let mut board = pleco::Board::from_fen(
-            EARLY_BALANCED_FENS[game % EARLY_BALANCED_FENS.len()]
-        )
-        .expect("Fen parse failed");
+    const SEARCH_TIME: Option<u128> = Some(500);
+    const SEARCH_DEPTH: u8 = 255;
 
-        println!("Game {}, New Playing as {}: Start FEN = {}", game + 1, if new_is_white { "White" } else { "Black" }, board.fen());
-        important.push(format!("Game {}, New Playing as {}: Start FEN = {}", game + 1, if new_is_white { "White" } else { "Black" }, board.fen()));
+    for game in 0..GAMES {
+        let mut board = pleco::Board::default();
+        // new_is_white = random_bool(0.5);
+        let mut board =
+            pleco::Board::from_fen(EARLY_BALANCED_FENS[game % EARLY_BALANCED_FENS.len()])
+                .expect("Fen parse failed");
+        // if game >= EARLY_BALANCED_FENS.len() {
+        //     board =
+        //         pleco::Board::from_fen(EARLY_COMMON_FENS[game % EARLY_COMMON_FENS.len()])
+        //             .expect("Fen parse failed");
+        // }
+        let mut elapsed_ms: f64 = 0f64;
+        let mut turn_count = 0;
+
+        println!(
+            "Game {}, New Playing as {}: Start FEN = {}",
+            game + 1,
+            if new_is_white { "White" } else { "Black" },
+            board.fen()
+        );
+        important.push(format!(
+            "Game {}, New Playing as {}: Start FEN = {}",
+            game + 1,
+            if new_is_white { "White" } else { "Black" },
+            board.fen()
+        ));
 
         'gameloop: while !board.generate_moves().is_empty() {
+            let start = Instant::now();
             let white_to_move = board.turn() == pleco::Player::White;
+            turn_count += 1;
             let mv = if (white_to_move && new_is_white) || (!white_to_move && !new_is_white) {
                 // New engine to move
-                engine::final_search::search_to_depth(&mut board, 11)
+                engine::search_test::search_to_depth_and_time(&mut board, SEARCH_DEPTH, SEARCH_TIME)
             } else {
                 // Old engine to move
-                engine::searching::start_search_quiet(&mut board)
+                engine::final_search::search_to_depth_and_time(&mut board, SEARCH_DEPTH, SEARCH_TIME)
             };
+            elapsed_ms += start.elapsed().as_millis() as f64;
             if mv.is_null() {
                 break 'gameloop;
             }
             board.apply_move(mv);
         }
 
+        total_avg_move_times += elapsed_ms / turn_count as f64;
+        println!(
+            "Game Average Time per Move: {} ms over {} moves",
+            elapsed_ms / turn_count as f64,
+            turn_count
+        );
 
         let white_to_move = board.turn() == pleco::Player::White;
         if board.checkmate() {
@@ -1237,10 +1244,12 @@ pub fn test_suite() {
                 str = format!("Game {}: New engine wins", game + 1);
                 new_wins += 1.0;
             }
+            println!("{}", str);
 
             important.push(str);
         } else {
             important.push(format!("Game {}: Draw by stalemate", game + 1));
+            println!("Game {}: Draw by stalemate", game + 1);
             total_draws += 1;
         }
         important.push(format!("Game {}: End FEN = {}", game + 1, board.fen()));
@@ -1259,4 +1268,8 @@ pub fn test_suite() {
     println!("Draws: {}", total_draws);
     let duration = start.elapsed();
     println!("Total Time: {} seconds", duration.as_secs());
+    println!(
+        "Average Time per Move: {} ms",
+        total_avg_move_times / GAMES as f64
+    );
 }
