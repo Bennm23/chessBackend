@@ -1,4 +1,12 @@
 # Work to Do
+- nnue evaluation
+- go through this and clean up 
+- check warnings/ remove prints finalize
+- put test ops behind a config flag or something
+- avoid draw in this position 3Q4/8/6p1/1p3qk1/p3p3/P5P1/6P1/6KR b - - 11 50
+
+
+
 - finalize display and commit
 - move engine to its own crate
     - test benchmarks/tests
