@@ -5,7 +5,7 @@ edition = "2021"
 default-run = "chess_engine"
 
 [workspace]
-members = ["book", "book_builder", "engine", "nnue", "pleco"]
+members = ["book", "book_builder", "engine", "pleco"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
