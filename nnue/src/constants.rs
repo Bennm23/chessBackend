@@ -14,6 +14,8 @@ pub const BIG_HASH: u32 = 470819058;
 //     ^ 0xCC03DAE4 ^ 1 ^ (0xCC03DAE4 >> 1) ^ (0xCC03DAE4 << 31); // fc2
 pub const LAYER_STACKS: usize = 8;
 pub const INPUT_DIM: usize = 22_528;
+pub const TRANSFORMED_FEATURE_DIM_BIG: usize = 3072;
+pub const TRANSFORMED_FEATURE_DIM_SMALL: usize = 128;
 pub const L1: usize = 3_072;
 pub const L2: usize = 15;
 pub const L3: usize = 32;
@@ -24,3 +26,5 @@ pub const MAX_SIMD_WIDTH: usize = 32; // AVX2
 
 pub const USE_AVX2: bool = cfg!(target_feature = "avx2");
 pub const USE_SSSE3: bool = cfg!(target_feature = "ssse3");
+
+pub const SQUARES: usize = 64;

@@ -911,6 +911,7 @@ name = "nnue"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "pleco",
  "safe_arch",
 ]
 

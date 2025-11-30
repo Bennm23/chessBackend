@@ -7,7 +7,7 @@ use lumbras::load_lumbras_book;
 fn main() {
     const FNAME: &str = "My_Book";
     // const FNAME: &str = "Benn_Test";
-    let file_path = format!("/home/bmelling/chess_db/openings/{}.pgn", FNAME);
+    let file_path = format!("/home/bmellin/chess_db/openings/{}.pgn", FNAME);
 
     let book = load_lumbras_book(
         &file_path,

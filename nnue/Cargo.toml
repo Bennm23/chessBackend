@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 bytemuck = "1.24.0"
 safe_arch = "0.9.3"
+pleco = { path = "../pleco" }

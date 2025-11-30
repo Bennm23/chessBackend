@@ -1,5 +1,7 @@
 use std::{fmt::Display, io::{self, Read}};
 
+use pleco::{Board, PieceType, Player};
+
 // --- LEB128 signed ---
 pub fn read_leb128_i16(r: &mut impl Read, n: usize) -> io::Result<Vec<i16>> {
     let mut magic = [0u8; 17];
@@ -123,4 +125,40 @@ pub fn get_first_and_last<T: Display>(data: &[T]) -> String {
 
 pub const fn ceil_to_multiple(n: usize, base: usize) -> usize {
     (n + base - 1) / base * base
+}
+
+
+pub fn win_rate_params(board : &Board) -> (f32, f32) {
+
+    let material = 
+        board.count_piece(Player::White, PieceType::P) as i32 + board.count_piece(Player::Black, PieceType::P) as i32 +
+        3 * (board.count_piece(Player::White, PieceType::N) as i32 + board.count_piece(Player::Black, PieceType::N) as i32) +
+        3 * (board.count_piece(Player::White, PieceType::B) as i32 + board.count_piece(Player::Black, PieceType::B) as i32) +
+        5 * (board.count_piece(Player::White, PieceType::R) as i32 + board.count_piece(Player::Black, PieceType::R) as i32) +
+        9 * (board.count_piece(Player::White, PieceType::Q) as i32 + board.count_piece(Player::Black, PieceType::Q) as i32);
+
+    // The fitted model only uses data for material counts in [17, 78], and is anchored at count 58.
+    let m = material.clamp(17, 78) as f32 / 58.0;
+    
+    // Return a = p_a(material) and b = p_b(material), see github.com/official-stockfish/WDL_model
+    let ass = [-13.50030198, 40.92780883, -36.82753545, 386.83004070];
+    let bs = [96.53354896, -165.79058388, 90.89679019, 49.29561889];
+
+    let a = (((ass[0] * m + ass[1]) * m + ass[2]) * m) + ass[3];
+    let b = (((bs[0] * m + bs[1]) * m + bs[2]) * m) + bs[3];
+
+    return (a, b);
+}
+
+
+fn to_cp(v: i32, board : &Board) -> f32 {
+    let (a, b) = win_rate_params(board);
+    (100f32 * v as f32 / a).round() 
+}
+
+pub fn format_cp_aligned_dot(v: i32, board: &Board) -> String {
+
+    let pawns = (0.01 * to_cp(v, board)).abs();
+    
+    format!("{} {}\n", if v < 0 {"-"} else {"+"}, pawns)
 }
