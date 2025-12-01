@@ -116,8 +116,10 @@ impl<const L1: usize, const L2: usize, const L3: usize> BucketNet<L1, L2, L3> {
 
         let mut fc1_out = self.fc1.new_output_buffer();
         self.fc1.propagate(fc1_in.as_ptr(), fc1_out.as_mut_ptr());
+
         let mut ac1_out = self.ac1.new_output_buffer();
         self.ac1.propagate(fc1_out.as_ptr(), ac1_out.as_mut_ptr());
+
         let mut fc2_out = self.fc2.new_output_buffer();
         self.fc2.propagate(ac1_out.as_ptr(), fc2_out.as_mut_ptr());
 
