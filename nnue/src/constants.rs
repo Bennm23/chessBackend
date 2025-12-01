@@ -1,3 +1,5 @@
+use aligned_vec::ConstAlign;
+
 /// This is the NNUE file that is currently supported. All hashes/versions etc are based
 /// upon this file used in stockfish 17.1
 pub const NNUE_FILE: &str = "nn-1c0000000000.nnue";
@@ -17,7 +19,9 @@ pub const INPUT_DIM: usize = 22_528;
 pub const TRANSFORMED_FEATURE_DIM_BIG: usize = 3072;
 pub const TRANSFORMED_FEATURE_DIM_SMALL: usize = 128;
 pub const L1: usize = 3_072;
+pub const L1_SMALL: usize = 128;
 pub const L2: usize = 15;
+pub const L2_PLUS_1: usize = L2 + 1;
 pub const L3: usize = 32;
 pub const PSQT_BUCKETS: usize = 8;
 
@@ -28,3 +32,9 @@ pub const USE_AVX2: bool = cfg!(target_feature = "avx2");
 pub const USE_SSSE3: bool = cfg!(target_feature = "ssse3");
 
 pub const SQUARES: usize = 64;
+
+pub const OUTPUT_SCALE: i32 = 16; // Final evaluation division factor
+pub const WEIGHT_SCALE_BITS: usize = 6;
+
+pub const CACHE_ALIGN: usize = 64;
+pub type VectorAlignment = ConstAlign<CACHE_ALIGN>;

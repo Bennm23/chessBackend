@@ -10,14 +10,13 @@ use crate::{constants::*, nnue_utils::*};
 //   packing to an 8-bit transformed vector (width FEATURE_DIMENSIONS).
 // - Computes a bucketed PSQT term from a separate PSQT weight table.
 // - Returns (transformed_features, psqt) to feed the bucketed network layers.
-pub struct FeatureTransformer {
-    pub feature_dimensions: usize,         // TRANSFORMED_FEATURE_DIM_BIG or _SMALL
+pub struct FeatureTransformer<const FEATURE_DIM: usize> {
     pub biases: Vec<i16>,                  // FEATURE_DIMENSIONS
     pub weights: Vec<i16>,                 // FEATURE_DIMENSIONS * INPUT_DIM
     pub psqt_weights: Vec<i32>,            // PSQT_BUCKETS * INPUT_DIM
 }
 
-impl Debug for FeatureTransformer {
+impl<const DIM: usize> Debug for FeatureTransformer<DIM> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("  Biases Len {}\n", self.biases.len()))?;
         f.write_str(&get_first_and_last(&self.biases))?;
@@ -42,29 +41,33 @@ const INV_PACK_ORDER: [usize; 8] = {
     inv
 };
 
-impl FeatureTransformer {
-    pub fn read_parameters(r: &mut impl Read, feature_dimensions: usize) -> io::Result<Self> {
+impl<const FEATURE_DIM: usize> FeatureTransformer<FEATURE_DIM> {
+
+    pub fn read_parameters(r: &mut impl Read) -> io::Result<Self> {
         // Feature transformer
         const FT_HASH_HEADER: u32 = 2133021880;
         let ft_hash = read_u32(r)?; // Hash header
         if ft_hash != FT_HASH_HEADER {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "Feature Transformer hash header mismatch"));
         }
-        let biases = read_leb128_i16(r, feature_dimensions)?;
-        let weights = read_leb128_i16(r, feature_dimensions * INPUT_DIM)?;
+        let biases = read_leb128_i16(r, FEATURE_DIM)?;
+        let weights = read_leb128_i16(r, FEATURE_DIM * INPUT_DIM)?;
         let psqt_weights = read_leb128_i32(r, PSQT_BUCKETS * INPUT_DIM)?;
-        let mut ft = FeatureTransformer { biases, weights, psqt_weights, feature_dimensions };
+        let mut ft = FeatureTransformer { biases, weights, psqt_weights,};
 
         ft.permute_weights();
         ft.scale_weights(L1, INPUT_DIM, true);
 
         Ok(ft)
     }
-    pub fn input_dims(&self) -> usize {
+    pub const fn input_dims(&self) -> usize {
         INPUT_DIM
     }
-    pub fn output_dims(&self) -> usize {
-        self.feature_dimensions
+    pub const fn output_dims(&self) -> usize {
+        FEATURE_DIM
+    }
+    pub const fn new_output_buffer(&self) -> CacheAligned<[u8; FEATURE_DIM]> {
+        CacheAligned([0u8; FEATURE_DIM])
     }
     // Permute 16-byte blocks according to order (matches C++ PackusEpi16Order)
     fn permute_blocks(data: &mut [i16], order: &[usize]) {

@@ -1,6 +1,22 @@
-use std::{fmt::Display, io::{self, Read}};
+use std::{fmt::Display, io::{self, Read}, ops::{Deref, DerefMut}};
 
 use pleco::{Board, PieceType, Player};
+
+#[repr(align(64))]
+pub struct CacheAligned<T>(pub T);
+
+impl<T> Deref for CacheAligned<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl<T> DerefMut for CacheAligned<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 
 // --- LEB128 signed ---
 pub fn read_leb128_i16(r: &mut impl Read, n: usize) -> io::Result<Vec<i16>> {
@@ -123,10 +139,13 @@ pub fn get_first_and_last<T: Display>(data: &[T]) -> String {
     output
 }
 
-pub const fn ceil_to_multiple(n: usize, base: usize) -> usize {
-    (n + base - 1) / base * base
+pub const fn ceil_to_multiple(x: usize, m: usize) -> usize {
+    if x % m == 0 {
+        x
+    } else {
+        x + (m - (x % m))
+    }
 }
-
 
 pub fn win_rate_params(board : &Board) -> (f32, f32) {
 
@@ -160,5 +179,5 @@ pub fn format_cp_aligned_dot(v: i32, board: &Board) -> String {
 
     let pawns = (0.01 * to_cp(v, board)).abs();
     
-    format!("{} {}\n", if v < 0 {"-"} else {"+"}, pawns)
+    format!("{} {:.2}", if v < 0 {"-"} else {"+"}, pawns)
 }
