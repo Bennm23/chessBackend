@@ -170,7 +170,7 @@ pub fn win_rate_params(board : &Board) -> (f32, f32) {
 }
 
 
-fn to_cp(v: i32, board : &Board) -> f32 {
+pub fn to_cp(v: i32, board : &Board) -> f32 {
     let (a, b) = win_rate_params(board);
     (100f32 * v as f32 / a).round() 
 }

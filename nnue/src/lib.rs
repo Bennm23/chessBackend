@@ -1,6 +1,8 @@
+#![allow(dead_code)]
 
 mod nnue;
 mod constants;
+mod nnue_misc;
 mod nnue_utils;
 mod feature_transformer;
 

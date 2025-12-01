@@ -10,64 +10,13 @@ use crate::constants::*;
 use crate::feature_transformer::FeatureTransformer;
 use crate::half_ka_v2_hm::make_index;
 use crate::layers::BucketNet;
+use crate::nnue_misc::EvalTrace;
 use crate::nnue_utils::*;
 use crate::vectors::{
     MAX_CHUNK_SIZE, Vec_T, vec_max_16, vec_min_16, vec_mulhi_16, vec_packus_16, vec_set1_16,
     vec_slli_16, vec_zero,
 };
 
-struct EvalTrace {
-    selected_bucket: usize,
-    side_to_move: Player,
-    psqt: [i32; LAYER_STACKS],
-    positional: [i32; LAYER_STACKS],
-}
-impl EvalTrace {
-    pub fn new() -> Self {
-        Self {
-            selected_bucket: 0,
-            side_to_move: Player::White,
-            psqt: [0; LAYER_STACKS],
-            positional: [0; LAYER_STACKS],
-        }
-    }
-    pub fn print(&self, board: &Board) {
-        println!("EvalTrace");
-        println!("NNUE Network Contributions ({} to move)", self.side_to_move);
-
-        let spacing = 13;
-
-        let linspace: &str = &"-".repeat(spacing);
-
-        println!("+{}+{}+{}+{}+", linspace, linspace, linspace, linspace);
-        println!(
-            "|{:^spacing$}|{:^spacing$}|{:^spacing$}|{:^spacing$}|",
-            "Bucket", "Material", "Positional", "Total"
-        );
-        println!(
-            "|{:^spacing$}|{:^spacing$}|{:^spacing$}|{:^spacing$}|",
-            "", "(PSQT)", "(Layers)", ""
-        );
-        println!("+{}+{}+{}+{}+", linspace, linspace, linspace, linspace);
-
-        for bucket in 0..LAYER_STACKS {
-            let total = self.psqt[bucket] + self.positional[bucket];
-            println!(
-                "|{:^spacing$}|{:^spacing$}|{:^spacing$}|{:^spacing$}|{}",
-                bucket,
-                format_cp_aligned_dot(self.psqt[bucket], board),
-                format_cp_aligned_dot(self.positional[bucket], board),
-                format_cp_aligned_dot(total, board),
-                if bucket == self.selected_bucket {
-                    " <-- selected"
-                } else {
-                    ""
-                },
-            );
-        }
-        println!("+{}+{}+{}+{}+", linspace, linspace, linspace, linspace);
-    }
-}
 
 pub struct NnueEvaluator {
     pub nnue: Nnue,
@@ -243,7 +192,7 @@ impl Nnue {
         0
     }
 
-    pub fn trace_eval(&mut self, board: &Board) -> i32 {
+    pub fn trace_eval(&mut self, board: &Board) -> EvalTrace {
         let mut trace = EvalTrace::new();
         trace.selected_bucket = (board.count_all_pieces() as usize - 1) / 4;
 
@@ -345,9 +294,7 @@ impl Nnue {
             trace.positional[bucket] = position / OUTPUT_SCALE;
         }
 
-        trace.print(board);
-
-        0
+        trace
     }
 }
 
@@ -421,18 +368,45 @@ mod tests {
     fn test_load_big_nnue() {
         let mut nnue =
             load_big_nnue("/home/bmellin/chess/chessBackendWebFinal/nn-1c0000000000.nnue").unwrap();
-        let start = Instant::now();
         println!("{:#?}", nnue);
         assert_eq!(nnue.ft.biases.len(), L1);
         assert_eq!(nnue.ft.weights.len(), L1 * INPUT_DIM);
         assert_eq!(nnue.ft.psqt_weights.len(), PSQT_BUCKETS * INPUT_DIM);
         assert_eq!(nnue.buckets.len(), LAYER_STACKS);
+    }
+    #[test]
+    fn test_pos1() {
+        let mut nnue =
+            load_big_nnue("/home/bmellin/chess/chessBackendWebFinal/nn-1c0000000000.nnue").unwrap();
 
         // let mut board = Board::start_pos();
         let mut board =
             Board::from_fen("rnbqkbnr/pppppppp/8/8/2P5/8/PP1PPPPP/RNBQKBNR b KQkq - 0 1").unwrap();
-        nnue.trace_eval(&mut board);
+        let start = Instant::now();
+        let trace = nnue.trace_eval(&mut board);
+// +-------------+-------------+-------------+-------------+
+// |   Bucket    |  Material   | Positional  |    Total    |
+// |             |   (PSQT)    |  (Layers)   |             |
+// +-------------+-------------+-------------+-------------+
+// |      0      |   + 0.07    |   + 2.77    |   + 2.83    |
+// |      1      |   + 0.00    |   + 0.59    |   + 0.59    |
+// |      2      |   + 0.02    |   + 0.13    |   + 0.14    |
+// |      3      |   + 0.03    |   + 0.19    |   + 0.22    |
+// |      4      |   + 0.02    |   + 0.03    |   + 0.06    |
+// |      5      |   + 0.02    |   + 0.01    |   + 0.02    |
+// |      6      |   + 0.01    |   - 0.04    |   - 0.03    |
+// |      7      |   + 0.01    |   - 0.14    |   - 0.13    | <-- selected
+// +-------------+-------------+-------------+-------------+
 
-        println!("Eval took {} ms", start.elapsed().as_millis());
+        let expected_psqt_vals = [25, 1, 6, 11, 9, 6, 3, 2];
+        let expected_positional_vals = [1048, 223, 48, 73, 12, 3, -16, -52];
+
+        for bucket in 0..LAYER_STACKS {
+            assert_eq!(trace.psqt[bucket], expected_psqt_vals[bucket]);
+            assert_eq!(trace.positional[bucket], expected_positional_vals[bucket]);
+        }
+        trace.print(&board);
+
+        println!("Eval took {} µs", start.elapsed().as_micros());
     }
 }

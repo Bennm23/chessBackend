@@ -5,11 +5,17 @@ use crate::constants::SQUARES;
 pub const COLORS: usize = 2; // 0=White,1=Black
 pub const PSQT_BUCKETS: usize = 8;
 
+/// NNUE per-color accumulator holding the fully materialized feature sums.
+///
+/// * `accumulation[color][dim]` stores the bias plus sum of active feature weights for each
+///   neuron in the first fully connected layer (dimension `DIM`), one slice per side to move.
+/// * `psqt_accum[color][bucket]` carries the piece-square table term for every PSQT bucket,
+///   letting us combine PSQT and feature-transform outputs without recomputing them.
+/// * `computed[color]` flags whether the cached data is up-to-date so incremental updates can
+///   skip rebuilding untouched sides.
 #[derive(Clone)]
 pub struct Accumulator<const DIM: usize> {
-    // accumulation[color][dim]
     pub accumulation: [[i16; DIM]; COLORS],
-    // psqtAccumulation[color][bucket]
     pub psqt_accum: [[i32; PSQT_BUCKETS]; COLORS],
     pub computed: [bool; COLORS],
 }

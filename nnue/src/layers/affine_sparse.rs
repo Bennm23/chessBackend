@@ -133,7 +133,6 @@ fn find_nnz<const NNZ_IN_DIMS: usize>(
     const OUTPUTS_PER_CHUNK: usize = CHUNK_SIZE / 8;
 
     let input_vector: *const Vec_T = input as *const Vec_T;
-    println!("AffineSparse::findnnz input_vector Pointer Addr {:p}", input_vector);
 
     let mut count = 0;
     let mut base = mm_setzero_si128();
