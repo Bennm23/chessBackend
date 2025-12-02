@@ -251,6 +251,11 @@ impl SQ {
         let s: u8 = self.0 as u8 ^ other.0 as u8;
         ((s >> 3) ^ s) & 1 != 0
     }
+
+    #[inline(always)]
+    pub fn to_index(self) -> usize {
+        self.0 as usize
+    }
 }
 
 // constants

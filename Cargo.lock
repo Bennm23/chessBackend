@@ -276,6 +276,7 @@ dependencies = [
  "book",
  "engine",
  "futures",
+ "nnue",
  "pleco",
  "rand 0.9.2",
  "serde",
@@ -516,6 +517,7 @@ version = "0.1.0"
 dependencies = [
  "criterion 0.5.1",
  "lazy_static",
+ "nnue",
  "pleco",
 ]
 

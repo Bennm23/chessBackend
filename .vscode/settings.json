@@ -1,3 +1,6 @@
 {
-    "rust-analyzer.checkOnSave": true
+    "rust-analyzer.checkOnSave": true,
+    "rust-analyzer.cargo.extraEnv": {
+        "RUSTFLAGS": "-C target-feature=+avx2 -C link-args=-Wl,-zstack-size=10000000"
+    }
 }

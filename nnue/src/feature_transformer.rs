@@ -2,7 +2,7 @@ use std::{fmt::Debug, io::{self, Read}};
 
 use pleco::Board;
 
-use crate::{accumulator::{Accumulator, COLORS}, constants::*, nnue_utils::*, vectors::{MAX_CHUNK_SIZE, Vec_T, vec_max_16, vec_min_16, vec_mulhi_16, vec_packus_16, vec_set1_16, vec_slli_16, vec_zero}};
+use crate::{accumulator::{Accumulator, AccumulatorCache, AccumulatorStack,}, constants::*, nnue_utils::*, vectors::{MAX_CHUNK_SIZE, Vec_T, vec_max_16, vec_min_16, vec_mulhi_16, vec_packus_16, vec_set1_16, vec_slli_16, vec_zero}};
 
 type OutputType = u8;
 
@@ -112,24 +112,20 @@ impl<const FEATURE_DIM: usize> FeatureTransformer<FEATURE_DIM> {
         }
     }
 
-    /// Applies the NNUE feature transform: clamps both accumulator halves, combines them into
-    /// bucketed PSQT-adjusted outputs, and writes the packed bytes that feed the dense layers.
-    ///
-    /// - `board`: current position (used only to derive perspectives/PSQT term).
-    /// - `accum`: per-side accumulator holding bias+weight sums and PSQT buckets.
-    /// - `output`: pointer to the cache-aligned output buffer (length = `FEATURE_DIM`), where the
-    ///   `[White | Black]` transformed features will be written.
-    /// - `bucket`: selected PSQT bucket index (0..7) used to compute the PSQT scalar term.
-    ///
-    /// Returns the PSQT contribution so callers can add it to the network output later.
-    ///
-    /// # Safety
-    /// `output` must point to a writable region of at least `FEATURE_DIM` bytes, properly aligned
-    /// for the target SIMD backend; the caller must ensure `accum` matches this transform’s
-    /// `FEATURE_DIM`. The function performs raw pointer arithmetic and SIMD loads/stores.
-    pub fn transform(&self, board: &Board, accum: &Accumulator<FEATURE_DIM>, output: *mut OutputType, bucket: usize) -> i32 {
+    pub fn transform_full(
+        &self,
+        board: &Board,
+        accumulator_stack: &mut AccumulatorStack,
+        accumulator_cache: &mut AccumulatorCache<FEATURE_DIM>,
+        output: *mut OutputType,
+        bucket: usize
+    ) -> i32 {
         // 0 = WHITE, 1 = BLACK
         let perspectives = [board.turn(), !board.turn()];
+
+        accumulator_stack.evaluate(board, self, accumulator_cache);
+
+        let accum = accumulator_stack.current().get_accumulator::<FEATURE_DIM>();
 
         let psqt = (accum.psqt_accum[perspectives[0] as usize][bucket as usize]
             - accum.psqt_accum[perspectives[1] as usize][bucket as usize])

@@ -1,5 +1,9 @@
 # Work to Do
+- implement layer sizes with traits?
+- cleanup nnue and add docs
 - nnue evaluation
+- fmt files
+
 - go through this and clean up 
 - check warnings/ remove prints finalize
 - put test ops behind a config flag or something
@@ -10,7 +14,6 @@
 - finalize display and commit
 - move engine to its own crate
     - test benchmarks/tests
-- host for real
 - debug positions and expected moves
 - after refinement, parallelize?
 - Blundered mate 1k1rr3/pp3p1Q/5q2/P7/4n1B1/1P1p3P/3P1PP1/1R3K1R w - - 2 25

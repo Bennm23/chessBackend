@@ -1,6 +1,6 @@
 use std::io::{self, Read};
 
-use crate::{constants::{OUTPUT_SCALE, WEIGHT_SCALE_BITS}, nnue_utils::{CacheAligned, ceil_to_multiple, read_u32}};
+use crate::{constants::{OUTPUT_SCALE, WEIGHT_SCALE_BITS}, nnue_utils::{ceil_to_multiple, read_u32}};
 
 mod affine_sparse;
 mod affine;
@@ -24,7 +24,6 @@ type ClippedReLU_1 = clipped_relu::ClippedReLU<
 /// Weights are i8, biases are i32
 ///
 /// # Architecture
-/// ```
 /// 8 buckets (by material count):
 ///   FC0 (sparse) L1 -> L2           // sparse matmul on active features; extra 16th used as forward term
 ///   SqrClippedReLU on first L2        // square and clamp hidden activations
@@ -34,16 +33,15 @@ type ClippedReLU_1 = clipped_relu::ClippedReLU<
 ///   ClippedReLU L3                    // clamp hidden layer
 ///   FC2 (dense) L3 -> 1               // final linear output
 ///  + scaled forward term from FC0[15] // add king-safety-style bonus to output
-/// ```
 pub struct BucketNet
 <const L1: usize, const L2: usize, const L3: usize>
 {
-    fc0: affine_sparse::AffineTransformSparse, // 3072 -> 16 (sparse)
+    fc0: affine_sparse::AffineTransformSparse,
     ac_sqr_0: SqClippedReLU,
     ac_0: ClippedReLU_0,
-    fc1: affine::AffineTransform, // 30 -> 32
+    fc1: affine::AffineTransform,
     ac1: ClippedReLU_1,
-    fc2: affine::AffineTransform, // 32 ->  1
+    fc2: affine::AffineTransform,
 }
 
 impl<const L1: usize, const L2: usize, const L3: usize> std::fmt::Debug for BucketNet<L1, L2, L3> {
@@ -96,7 +94,7 @@ impl<const L1: usize, const L2: usize, const L3: usize> BucketNet<L1, L2, L3> {
         Ok(BucketNet::new(fc0, fc1, fc2))
     }
 
-    pub fn propagate(&mut self, input: *const u8) -> i32 {
+    pub fn propagate(&self, input: *const u8) -> i32 {
         //TODO: Cache Align all of them?
         let mut fc0_out = self.fc0.new_output_buffer();
         let mut ac_sqr_out = self.ac_sqr_0.new_output_buffer();
@@ -128,10 +126,7 @@ impl<const L1: usize, const L2: usize, const L3: usize> BucketNet<L1, L2, L3> {
 
         let output_value = (fc2_out[0] as i32) + fwd_out;
         
-        println!("BucketNet output_value: {}", output_value);
-
         output_value
-
     }
 }
 

@@ -8,3 +8,24 @@ bytemuck = "1.24.0"
 safe_arch = "0.9.3"
 pleco = { path = "../pleco" }
 aligned-vec = "0.6.4"
+
+[env]
+#RUST_MIN_STACK = "33554432"
+RUST_MIN_STACK  = "60000000"
+
+[build]
+rustflags = ["-C", "target-feature=+avx2,+ssse3"]
+
+[profile.test]
+opt-level = 3
+codegen-units = 1
+lto = "fat"
+
+[profile.release]
+opt-level = 3
+debug = false
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = "fat"
+incremental = false
