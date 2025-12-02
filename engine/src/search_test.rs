@@ -325,9 +325,6 @@ impl<'a, T: Tracing<SearchDebugger>> MySearcher<'a, T> {
                 println!("Mate Found At Depth = {reached_depth}");
             }
         }
-        // println!("TT Percent = {}", self.tt.hash_percent());
-        println!("REACHED DEPTH {reached_depth}");
-        println!("Evaluation Score = {}", best_move.score);
 
         best_move
     }

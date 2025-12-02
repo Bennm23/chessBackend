@@ -303,10 +303,6 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
                 println!("Mate Found At Depth = {reached_depth}");
             }
         }
-        // println!("TT Percent = {}", self.tt.hash_percent());
-        println!("OLD REACHED DEPTH {reached_depth}");
-        println!("OLD FINAL EVAL = {}", best_move.score);
-
 
         best_move
     }
