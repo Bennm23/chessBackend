@@ -3,26 +3,21 @@ use std::fs::File;
 use std::io::{self, BufReader, Read};
 use std::path::Path;
 use std::sync::LazyLock;
-use std::sync::LazyLock;
 
 use pleco::{Board, Piece, Player};
 
-use crate::accumulator::{Accumulator, AccumulatorCache, AccumulatorCaches, AccumulatorStack};
 use crate::accumulator::{Accumulator, AccumulatorCache, AccumulatorCaches, AccumulatorStack};
 use crate::constants::*;
 use crate::feature_transformer::FeatureTransformer;
 use crate::half_ka_v2_hm::make_index;
 use crate::layers::BucketNet;
 use crate::nnue_misc::{DirtyPiece, EvalTrace};
-use crate::nnue_misc::{DirtyPiece, EvalTrace};
 use crate::nnue_utils::*;
 
-static NNUE_BIG : LazyLock<Nnue> = LazyLock::new(||
-    load_big_nnue("/home/bmellin/chess/chessBackendWebFinal/nn-1c0000000000.nnue").expect("Failed to load NNUE")
-);
-static NNUE_BIG : LazyLock<Nnue> = LazyLock::new(||
-    load_big_nnue("/home/bmellin/chess/chessBackendWebFinal/nn-1c0000000000.nnue").expect("Failed to load NNUE")
-);
+static NNUE_BIG: LazyLock<Nnue> = LazyLock::new(|| {
+    load_big_nnue("/home/bmellin/chess/chessBackendWebFinal/nn-1c0000000000.nnue")
+        .expect("Failed to load NNUE")
+});
 
 pub struct NnueEvaluator {
     accum_stack: AccumulatorStack,
@@ -44,7 +39,8 @@ impl NnueEvaluator {
         NNUE_BIG.trace_eval(board, &mut self.accum_stack, &mut self.accum_cache.big)
     }
     pub fn reset(&mut self, board: &Board) {
-        self.accum_stack.reset(board, &NNUE_BIG, &mut self.accum_cache);
+        self.accum_stack
+            .reset(board, &NNUE_BIG, &mut self.accum_cache);
     }
 
     pub fn do_move(&mut self, board: &Board, mv: pleco::BitMove) {
@@ -120,7 +116,12 @@ pub struct EvalResult {
 
 impl EvalResult {
     pub fn raw_fmt(&self) -> String {
-        format!("PSQT: {}, Positional: {}, Scaled Total: {}", self.psqt, self.positional, self.scaled_total())
+        format!(
+            "PSQT: {}, Positional: {}, Scaled Total: {}",
+            self.psqt,
+            self.positional,
+            self.scaled_total()
+        )
     }
     pub fn cp_fmt(&self, board: &Board) -> String {
         format!(
@@ -134,31 +135,6 @@ impl EvalResult {
     pub fn scaled_total(&self) -> i32 {
         (125 * self.psqt + 131 * self.positional) / 128
     }
-
-}
-
-pub struct EvalResult {
-    pub psqt: i32,
-    pub positional: i32,
-}
-
-impl EvalResult {
-    pub fn raw_fmt(&self) -> String {
-        format!("PSQT: {}, Positional: {}, Scaled Total: {}", self.psqt, self.positional, self.scaled_total())
-    }
-    pub fn cp_fmt(&self, board: &Board) -> String {
-        format!(
-            "CP -> PSQT: {}, Positional: {}, Scaled Total: {}",
-            format_cp_aligned_dot(self.psqt, board),
-            format_cp_aligned_dot(self.positional, board),
-            format_cp_aligned_dot(self.scaled_total(), board)
-        )
-    }
-
-    pub fn scaled_total(&self) -> i32 {
-        (125 * self.psqt + 131 * self.positional) / 128
-    }
-
 }
 
 impl Nnue {
@@ -166,61 +142,31 @@ impl Nnue {
         &self,
         board: &Board,
         accum_stack: &mut AccumulatorStack,
-        accum_cache: &mut AccumulatorCache<TRANSFORMED_FEATURE_DIM_BIG>
-    ) -> EvalResult {
-        let bucket: usize = (board.count_all_pieces() as usize - 1) / 4;
-    pub fn evaluate(
-        &self,
-        board: &Board,
-        accum_stack: &mut AccumulatorStack,
-        accum_cache: &mut AccumulatorCache<TRANSFORMED_FEATURE_DIM_BIG>
+        accum_cache: &mut AccumulatorCache<TRANSFORMED_FEATURE_DIM_BIG>,
     ) -> EvalResult {
         let bucket: usize = (board.count_all_pieces() as usize - 1) / 4;
 
         // TRANSFORM BLOCK
-
         let mut buf = self.ft.new_output_buffer();
-        let psqt = self.ft.transform_full(
-        let mut buf = self.ft.new_output_buffer();
-        let psqt = self.ft.transform_full(
-            board,
-            accum_stack,
-            accum_cache,
-            buf.as_mut_ptr(),
-            bucket
-        );
+        let psqt = self
+            .ft
+            .transform(board, accum_stack, accum_cache, buf.as_mut_ptr(), bucket);
 
         // We now have buf filled with transformed features for this bucket
         // need to run through net
         let positional = self.buckets[bucket].propagate(buf.as_ptr());
 
-        EvalResult { psqt: psqt / OUTPUT_SCALE, positional: positional / OUTPUT_SCALE }
+        EvalResult {
+            psqt: psqt / OUTPUT_SCALE,
+            positional: positional / OUTPUT_SCALE,
+        }
     }
 
     pub fn trace_eval(
         &self,
         board: &Board,
         accum_stack: &mut AccumulatorStack,
-        accum_cache: &mut AccumulatorCache<TRANSFORMED_FEATURE_DIM_BIG>
-    ) -> EvalTrace {
-            accum_stack,
-            accum_cache,
-            buf.as_mut_ptr(),
-            bucket
-        );
-
-        // We now have buf filled with transformed features for this bucket
-        // need to run through net
-        let positional = self.buckets[bucket].propagate(buf.as_ptr());
-
-        EvalResult { psqt: psqt / OUTPUT_SCALE, positional: positional / OUTPUT_SCALE }
-    }
-
-    pub fn trace_eval(
-        &self,
-        board: &Board,
-        accum_stack: &mut AccumulatorStack,
-        accum_cache: &mut AccumulatorCache<TRANSFORMED_FEATURE_DIM_BIG>
+        accum_cache: &mut AccumulatorCache<TRANSFORMED_FEATURE_DIM_BIG>,
     ) -> EvalTrace {
         let mut trace = EvalTrace::new();
         trace.selected_bucket = (board.count_all_pieces() as usize - 1) / 4;
@@ -230,20 +176,9 @@ impl Nnue {
             // TRANSFORM BLOCK
 
             let mut buf = self.ft.new_output_buffer();
-            let psqt = self.ft.transform_full(
-            let mut buf = self.ft.new_output_buffer();
-            let psqt = self.ft.transform_full(
-                board,
-                accum_stack,
-                accum_cache,
-                buf.as_mut_ptr(),
-                bucket
-            );
-                accum_stack,
-                accum_cache,
-                buf.as_mut_ptr(),
-                bucket
-            );
+            let psqt = self
+                .ft
+                .transform(board, accum_stack, accum_cache, buf.as_mut_ptr(), bucket);
 
             trace.psqt[bucket] = psqt / OUTPUT_SCALE;
             trace.psqt[bucket] = psqt / OUTPUT_SCALE;
@@ -319,13 +254,15 @@ pub fn load_big_nnue(path: impl AsRef<Path>) -> io::Result<Nnue> {
 
 #[cfg(test)]
 mod tests {
-    use std::{io::{Write, stdout}, time::Instant};
+    use std::{
+        io::{Write, stdout},
+        time::Instant,
+    };
 
     use super::*;
 
     #[test]
     fn test_load_big_nnue() {
-        let nnue =
         let nnue =
             load_big_nnue("/home/bmellin/chess/chessBackendWebFinal/nn-1c0000000000.nnue").unwrap();
         println!("{:#?}", nnue);
@@ -333,7 +270,7 @@ mod tests {
         assert_eq!(nnue.ft.weights.len(), L1 * INPUT_DIM);
         assert_eq!(nnue.ft.psqt_weights.len(), PSQT_BUCKETS * INPUT_DIM);
         assert_eq!(nnue.buckets.len(), LAYER_STACKS);
-    } 
+    }
 
     #[test]
     fn test_start_pos() {
@@ -373,7 +310,8 @@ mod tests {
         let mut evaluator = NnueEvaluator::new();
 
         let board =
-            Board::from_fen("rq2kb1r/pppb1ppp/3ppn2/8/4PP2/2P5/PP1P2PP/RNB1KBNR w KQkq - 0 1").unwrap();
+            Board::from_fen("rq2kb1r/pppb1ppp/3ppn2/8/4PP2/2P5/PP1P2PP/RNB1KBNR w KQkq - 0 1")
+                .unwrap();
         evaluator.reset(&board);
         let eval = evaluator.evaluate(&board);
 
@@ -386,7 +324,8 @@ mod tests {
         let mut evaluator = NnueEvaluator::new();
 
         let board =
-            Board::from_fen("rq2kb1r/pppb1ppp/3ppn2/8/4PP2/2P5/PP1P2PP/RNB1KBNR b KQkq - 0 1").unwrap();
+            Board::from_fen("rq2kb1r/pppb1ppp/3ppn2/8/4PP2/2P5/PP1P2PP/RNB1KBNR b KQkq - 0 1")
+                .unwrap();
         let start = Instant::now();
         evaluator.reset(&board);
         let eval = evaluator.evaluate(&board);
@@ -408,23 +347,23 @@ mod tests {
         let mut board =
             Board::from_fen("rnbqkbnr/pppppppp/8/8/2P5/8/PP1PPPPP/RNBQKBNR b KQkq - 0 1").unwrap();
 
-        evaluator.reset(&board);//Reset at start of search
+        evaluator.reset(&board); //Reset at start of search
 
         let mut trace = evaluator.trace_eval(&board);
 
-// +-------------+-------------+-------------+-------------+
-// |   Bucket    |  Material   | Positional  |    Total    |
-// |             |   (PSQT)    |  (Layers)   |             |
-// +-------------+-------------+-------------+-------------+
-// |      0      |   + 0.07    |   + 2.77    |   + 2.83    |
-// |      1      |   + 0.00    |   + 0.59    |   + 0.59    |
-// |      2      |   + 0.02    |   + 0.13    |   + 0.14    |
-// |      3      |   + 0.03    |   + 0.19    |   + 0.22    |
-// |      4      |   + 0.02    |   + 0.03    |   + 0.06    |
-// |      5      |   + 0.02    |   + 0.01    |   + 0.02    |
-// |      6      |   + 0.01    |   - 0.04    |   - 0.03    |
-// |      7      |   + 0.01    |   - 0.14    |   - 0.13    | <-- selected
-// +-------------+-------------+-------------+-------------+
+        // +-------------+-------------+-------------+-------------+
+        // |   Bucket    |  Material   | Positional  |    Total    |
+        // |             |   (PSQT)    |  (Layers)   |             |
+        // +-------------+-------------+-------------+-------------+
+        // |      0      |   + 0.07    |   + 2.77    |   + 2.83    |
+        // |      1      |   + 0.00    |   + 0.59    |   + 0.59    |
+        // |      2      |   + 0.02    |   + 0.13    |   + 0.14    |
+        // |      3      |   + 0.03    |   + 0.19    |   + 0.22    |
+        // |      4      |   + 0.02    |   + 0.03    |   + 0.06    |
+        // |      5      |   + 0.02    |   + 0.01    |   + 0.02    |
+        // |      6      |   + 0.01    |   - 0.04    |   - 0.03    |
+        // |      7      |   + 0.01    |   - 0.14    |   - 0.13    | <-- selected
+        // +-------------+-------------+-------------+-------------+
 
         trace.print(&board);
 
@@ -468,19 +407,11 @@ mod tests {
         let start = Instant::now();
         let _evaluator = NnueEvaluator::new();
         println!("Instantiation took {} µs", start.elapsed().as_micros());
-    
-        println!("NNUE SIZE = {} MB", std::mem::size_of::<NnueEvaluator>() as f64 / 1_048_576f64 );
-        //30-50 us move -> undo
-        //20 us just eval
-        println!("Full Trace took {} µs", start.elapsed().as_micros());
-    }
 
-    #[test]
-    fn instantiate_test() {
-        let start = Instant::now();
-        let _evaluator = NnueEvaluator::new();
-        println!("Instantiation took {} µs", start.elapsed().as_micros());
-    
-        println!("NNUE SIZE = {} MB", std::mem::size_of::<NnueEvaluator>() as f64 / 1_048_576f64 );
+        println!(
+            "NNUE SIZE = {} MB",
+            std::mem::size_of::<NnueEvaluator>() as f64 / 1_048_576f64
+        );
+        println!("Full Trace took {} µs", start.elapsed().as_micros());
     }
 }
