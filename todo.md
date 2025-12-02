@@ -1,5 +1,8 @@
 # Work to Do
+- implement layer sizes with traits?
+- cleanup nnue and add docs
 - nnue evaluation
+
 - go through this and clean up 
 - check warnings/ remove prints finalize
 - put test ops behind a config flag or something

@@ -1,4 +1,13 @@
 // constants for square ids (A1 = 0, H1 = 7, A8 = 56, H8 = 63)
+//TODO: Put this behind a module and use selectively
+
+use core::panic;
+
+use pleco::{PieceType, Player, SQ};
+
+use crate::nnue_misc::DirtyPiece;
+
+
 const SQ_A1: u8 = 0;
 const SQ_H1: u8 = 7;
 const SQ_A8: u8 = 56;
@@ -77,4 +86,43 @@ pub fn make_index(perspective: usize, square: u8, piece: usize, king_sq: u8) -> 
     ((u32::from(square) ^ u32::from(ORIENT_TBL[perspective][king_sq as usize]))
         + PIECE_SQUARE_INDEX[perspective][piece]
         + KING_BUCKETS[perspective][king_sq as usize] ) as usize
+}
+
+
+// Max number of simultaneously active features
+pub const MAX_ACTIVE_DIMENSIONS: usize = 32;
+// pub type IndexList = [usize; MAX_ACTIVE_DIMENSIONS];
+pub type IndexList = Vec<usize>;
+
+
+/// Check if a DirtyPiece requires a refresh of the accumulator cache
+/// This occurs when this perspective's king has moved
+pub fn requires_refresh(dp: &DirtyPiece, perspective: Player) -> bool {
+    let opt = dp.piece[0].player_piece();
+
+    if let Some((player, pt)) = opt {
+        player == perspective && pt == PieceType::K
+    } else {
+        panic!("DirtyPiece has no piece set");
+    }
+}
+
+pub fn append_changed_indices(
+    perspective: Player,
+    king_sq: u8,
+    dp: &DirtyPiece,
+    removed: &mut IndexList,
+    added: &mut IndexList,
+) {
+
+    for i in 0 .. dp.dirty_num {
+        if dp.from[i] != SQ::NONE {
+            removed.push(make_index(perspective as usize, dp.from[i].0 , dp.piece[i] as usize, king_sq));
+        }
+        if dp.to[i] != SQ::NONE {
+            added.push(make_index(perspective as usize, dp.to[i].0 , dp.piece[i] as usize, king_sq));
+        }
+
+    }
+
 }

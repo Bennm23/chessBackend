@@ -1,16 +1,17 @@
 use std::time::{Duration, Instant};
 
+use nnue::nnue::NnueEvaluator;
 use pleco::{
+    BitMove, Board, PieceType, Player, ScoringMove,
     core::{
+        GenTypes,
         mono_traits::{BlackType, PlayerTrait, WhiteType},
         score::{DRAW, INFINITE, MATE, NEG_INFINITE},
-        GenTypes,
     },
     tools::{
-        tt::{Entry, NodeBound, TranspositionTable},
         PreFetchable,
+        tt::{Entry, NodeBound, TranspositionTable},
     },
-    BitMove, Board, PieceType, Player, ScoringMove,
 };
 
 use crate::{
@@ -26,6 +27,13 @@ use super::{
 };
 
 const MATE_V: MyVal = MATE as MyVal;
+const VALUE_MATE_IN_MAX_PLY: MyVal = MATE_V - MAX_PLY as MyVal;
+const VALUE_MATED_IN_MAX_PLY: MyVal = -VALUE_MATE_IN_MAX_PLY;
+
+const VALUE_TB: EvalVal = VALUE_MATE_IN_MAX_PLY as EvalVal - 1;
+const VALUE_TB_WIN_IN_MAX_PLY: EvalVal = VALUE_TB - MAX_PLY as EvalVal;
+const VALUE_TB_LOSS_IN_MAX_PLY: EvalVal = -VALUE_TB_WIN_IN_MAX_PLY;
+
 const DRAW_V: MyVal = DRAW as MyVal;
 const NEG_INF_V: MyVal = NEG_INFINITE as MyVal;
 const INF_V: MyVal = INFINITE as MyVal;
@@ -39,10 +47,11 @@ const NUM_SQUARES: usize = 64;
 
 // Mild LMR parameters.
 const LMR_MIN_DEPTH: i8 = 3;
-const LMR_MIN_MOVE_INDEX: i32 = 4;
+// const LMR_MIN_MOVE_INDEX: i32 = 5;
+const LMR_MIN_MOVE_INDEX: i32 = 6;
 
 // Null-move parameters.
-const NULL_MOVE_MIN_DEPTH: i8 = 2;
+const NULL_MOVE_MIN_DEPTH: i8 = 3;
 const NULL_MOVE_REDUCTION_BASE: i8 = 2;
 
 // Futility parameters (very mild, only on quiet nodes, never in check).
@@ -50,7 +59,8 @@ const FUTILITY_MAX_DEPTH: i8 = 2; // only at depth 1..2
 const FUTILITY_BASE_MARGIN: MyVal = 100; // ~1 pawn per depth unit
 
 // Searcher with TT, history, killers.
-pub struct MySearcher<T: Tracing<SearchDebugger>> {
+pub struct MySearcher<'a, T: Tracing<SearchDebugger>> {
+    nnue_eval: &'a mut NnueEvaluator,
     pawn_table: PawnTable,
     material: Material,
     start_time: Instant,
@@ -77,24 +87,27 @@ pub struct MySearcher<T: Tracing<SearchDebugger>> {
 pub const NULL_SCORE: ScoringMove = ScoringMove::null();
 
 // Public API (unchanged)
-pub fn search_to_depth_and_time(board: &mut Board, ply: u8, time: Option<u128>) -> BitMove {
-    let mut searcher = MySearcher::new(NoTrace::new(), time);
+pub fn search_to_depth_and_time(nnue_eval: &mut NnueEvaluator, board: &mut Board, ply: u8, time: Option<u128>) -> BitMove {
+    let mut searcher = MySearcher::new(nnue_eval, NoTrace::new(), time);
     searcher.find_best_move(board, ply)
 }
 
 pub fn start_search(board: &mut Board) -> BitMove {
-    let mut searcher = MySearcher::new(Trace::new(), Some(1000));
+    let mut nnue_eval = NnueEvaluator::new();
+    let mut searcher = MySearcher::new(&mut nnue_eval, Trace::new(), Some(1000));
     searcher.find_best_move(board, MAX_PLY as u8)
 }
 
 pub fn eval_search(board: &mut Board) -> f64 {
-    let mut searcher = MySearcher::new(NoTrace::new(), Some(1000));
+    let mut nnue_eval = NnueEvaluator::new();
+    let mut searcher = MySearcher::new(&mut nnue_eval, NoTrace::new(), Some(1000));
     searcher.search_eval(board, MAX_PLY as u8)
 }
 
-impl<T: Tracing<SearchDebugger>> MySearcher<T> {
-    pub fn new(tracer: T, time_limit: Option<u128>) -> Self {
+impl<'a, T: Tracing<SearchDebugger>> MySearcher<'a, T> {
+    pub fn new(nnue_eval: &'a mut NnueEvaluator, tracer: T, time_limit: Option<u128>) -> Self {
         Self {
+            nnue_eval,
             pawn_table: PawnTable::new(),
             material: Material::new(),
             start_time: Instant::now(),
@@ -112,8 +125,9 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
         }
     }
 
-    pub fn trace(tracer: T) -> Self {
+    pub fn trace(nnue_eval: &'a mut NnueEvaluator, tracer: T) -> Self {
         Self {
+            nnue_eval,
             pawn_table: PawnTable::new(),
             material: Material::new(),
             start_time: Instant::now(),
@@ -131,16 +145,22 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
         }
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub fn eval(&mut self, board: &Board) -> MyVal {
-        let pawns = &mut self.pawn_table;
-        let material = &mut self.material;
-        let res = eval_board_ai(board, pawns, material);
+        let eval = self.nnue_eval.evaluate(board);
+        let scaled = eval.scaled_total();
+        let pawn_count = board.count_piece(Player::Black, PieceType::P) + board.count_piece(Player::White, PieceType::P);
+        let pawn_score = 535 * pawn_count as i32;
 
-        if res > MyVal::MAX as EvalVal || res < MyVal::MIN as EvalVal {
-            println!("ERROR: eval overflow for i16");
-        }
-        res as MyVal
+        let material = pawn_score + board.count_all_pieces() as i32 - pawn_count as i32;
+
+        // Stocksish idk
+        let mut v = (scaled * (77777 + material)) / 77777;
+        v -= v * board.rule_50() as i32 / 212;
+
+        v = v.clamp(VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
+
+        v as MyVal
     }
 
     #[inline(always)]
@@ -178,6 +198,9 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
         self.tt.new_search();
         self.last_root_move = NULL_BIT_MOVE;
 
+        self.nnue_eval.reset(board);
+
+
         let mut alpha: MyVal;
         let mut beta: MyVal;
 
@@ -211,7 +234,7 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
                     beta,
                     depth as i8,
                     0,
-                    false, // allow_null = false at root
+                    false,          // allow_null = false at root
                     root_pv_move,
                 );
 
@@ -303,7 +326,8 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
             }
         }
         // println!("TT Percent = {}", self.tt.hash_percent());
-        // println!("REACHED DEPTH {reached_depth}");
+        println!("REACHED DEPTH {reached_depth}");
+        println!("Evaluation Score = {}", best_move.score);
 
         best_move
     }
@@ -317,7 +341,6 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
     /// - mild LMR
     /// - null-move pruning
     /// - mild forward futility pruning
-    #[inline(always)]
     fn alpha_beta(
         &mut self,
         board: &mut Board,
@@ -328,7 +351,6 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
         allow_null: bool,
         root_pv_move: BitMove,
     ) -> ScoringMove {
-        //TODO: Dont call every node?
         if self.time_up() {
             // Fail-soft: current alpha as best-known.
             return ScoringMove::new_score(NULL_BIT_MOVE, alpha);
@@ -349,13 +371,16 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
 
         // Mate bound: clamp alpha/beta to legal mate score range.
         let mate_bound = MATE_V - ply as MyVal;
-        alpha = alpha.max(-mate_bound);
-        beta = beta.min(mate_bound);
+        if alpha < -mate_bound {
+            alpha = -mate_bound;
+        }
+        if beta > mate_bound {
+            beta = mate_bound;
+        }
         if alpha >= beta {
             return ScoringMove::blank(mate_in(ply));
         }
 
-        //TODO: Q After TT?
         if depth <= 0 {
             let q = self.quiescence_search(board, alpha, beta, ply, 0);
             return ScoringMove::blank(q);
@@ -363,7 +388,6 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
 
         let mut static_eval = self.eval(board);
 
-        let is_pv_node = alpha != beta - 1;
         // Generate moves early so we can detect checkmate/stalemate; we may still cut off via null move.
         let mut moves = board.generate_moves();
 
@@ -409,14 +433,16 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
         // - low depth (<= FUTILITY_MAX_DEPTH)
         // - eval is clearly below alpha even after adding a small margin
         // - not a known near-mate score
-        if !in_check && depth <= FUTILITY_MAX_DEPTH && static_eval.abs() < MATE_V - 256 {
+        if !in_check
+            && depth <= FUTILITY_MAX_DEPTH
+            && static_eval.abs() < MATE_V - 256
+        {
             let margin = futility_margin(depth);
             if static_eval + margin <= alpha {
                 // Go to qsearch instead of full tree; preserves tactics.
                 let q = self.quiescence_search(board, alpha, beta, ply, 0);
-                return ScoringMove::blank(q); //TODO: .max(static_eval + margin)
+                return ScoringMove::blank(q);
             }
-            //TODO: Razoring?
         }
         // ------------------------------------------------
 
@@ -436,11 +462,8 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
         {
             let npm = board.non_pawn_material(board.turn());
             if npm > 0 {
-                //d = 4, r = 3. new depth = 0
-                let r = NULL_MOVE_REDUCTION_BASE + depth / 3; // small reduction scaling with depth
-                                                              // let r = 1920 + (depth as u32) * 2368;
-                                                              // let reduced_depth = ((depth as u32) - r / 4096) as i8;
-
+                //TODO: Try 3
+                let r = NULL_MOVE_REDUCTION_BASE + depth / 4; // small reduction scaling with depth
                 unsafe {
                     board.apply_null_move();
                 }
@@ -450,7 +473,7 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
                     -beta + 1,
                     depth - 1 - r,
                     ply + 1,
-                    false, // do not allow nested null
+                    false,      // do not allow nested null
                     NULL_BIT_MOVE,
                 );
                 unsafe {
@@ -476,13 +499,8 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
             [NULL_BIT_MOVE; 2]
         };
 
-        let root_hint = if ply == 0 {
-            root_pv_move
-        } else {
-            NULL_BIT_MOVE
-        };
+        let root_hint = if ply == 0 { root_pv_move } else { NULL_BIT_MOVE };
 
-        // moves.sort_unstable_by_key(f);
         moves.sort_unstable_by_key(|mv| {
             score_move(
                 board,
@@ -513,6 +531,7 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
 
             self.tt.prefetch(board.key_after(mv));
 
+            self.nnue_eval.do_move(&board, mv);
             board.apply_move(mv);
 
             // Mild LMR on quiet, non-check, non-first moves.
@@ -527,7 +546,9 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
             {
                 // reduce by 1 ply
                 new_depth -= 1;
-                // new_depth -= get_lmr_reduction(depth, move_index, is_pv_node);
+                // if new_depth > 3 && move_index >= 6 {
+                //     new_depth -= 1;
+                // }
                 reduced = true;
             }
 
@@ -542,7 +563,7 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
                         -alpha,
                         depth - 1,
                         ply + 1,
-                        true, // allow null below PV
+                        true,           // allow null below PV
                         NULL_BIT_MOVE,
                     )
                     .score;
@@ -556,7 +577,7 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
                         -alpha,
                         new_depth,
                         ply + 1,
-                        true, // allow null below
+                        true,           // allow null below
                         NULL_BIT_MOVE,
                     )
                     .score;
@@ -592,6 +613,7 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
                 }
             }
 
+            self.nnue_eval.undo_move();
             board.undo_move();
             legal_moves += 1;
 
@@ -644,7 +666,10 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
             NodeBound::Exact // inside window, not fail-high (we handled those earlier)
         };
 
-        if matches!(tt_flag, NodeBound::Exact) && !best_move.is_null() && (ply as usize) < MAX_PLY {
+        if matches!(tt_flag, NodeBound::Exact)
+            && !best_move.is_null()
+            && (ply as usize) < MAX_PLY
+        {
             self.pv_moves[ply as usize] = ScoringMove::new_score(best_move, best_score);
         }
 
@@ -666,7 +691,6 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
     }
 
     /// Quiescence search: stand-pat, captures, evasions if in check.
-    #[inline(always)]
     fn quiescence_search(
         &mut self,
         board: &mut Board,
@@ -684,7 +708,7 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
         }
 
         let in_check = board.in_check();
-        let static_eval = self.eval(board); //TODO: Pass in static eval?
+        let static_eval = self.eval(board);
 
         // Depth cap: allow fall-through when in check to search evasions;
         // only stand-pat when not in check.
@@ -753,9 +777,12 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
 
             self.tt.prefetch(board.key_after(mv));
 
+            self.nnue_eval.do_move(&board, mv);
             board.apply_move(mv);
-            let score = -self.quiescence_search(board, -beta, -alpha, ply + 1, next_depth);
+            let score =
+                -self.quiescence_search(board, -beta, -alpha, ply + 1, next_depth);
             board.undo_move();
+            self.nnue_eval.undo_move();
 
             if score >= beta {
                 return score;
@@ -772,7 +799,7 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
         best
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     fn store_killer(&mut self, ply: u8, mv: BitMove) {
         let p = ply as usize;
         if p >= MAX_PLY || mv.is_null() {
@@ -785,7 +812,7 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
         }
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     fn update_history(&mut self, side_idx: usize, mv: BitMove, depth: i8) {
         let from = mv.get_src_u8() as usize;
         let to = mv.get_dest_u8() as usize;
@@ -798,6 +825,7 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
         *entry = (*entry + bonus).clamp(-10_000, 10_000);
     }
 }
+
 
 #[inline(always)]
 fn mate_in(ply: u8) -> MyVal {
@@ -861,7 +889,7 @@ fn tt_can_improve_static(tt_value: MyVal, current_val: MyVal, bound: NodeBound) 
 }
 
 /// Move ordering score: lower is better (we sort by key ascending).
-#[inline(always)]
+// #[inline(always)]
 fn score_move(
     board: &Board,
     mv: BitMove,
@@ -888,8 +916,7 @@ fn score_move(
     let from = mv.get_src_u8() as usize;
     let to = mv.get_dest_u8() as usize;
 
-    // let is_capture = board.is_capture(mv);
-    let is_capture = mv.is_capture();
+    let is_capture = board.is_capture(mv);
     let is_promo = mv.is_promo();
 
     if is_capture {
@@ -930,7 +957,7 @@ fn score_move(
     score
 }
 
-#[inline(always)]
+// #[inline(always)]
 fn get_capture_score(board: &Board, mv: &BitMove) -> MyVal {
     let attacker = board.piece_at_sq(mv.get_src());
     let dest = if mv.is_en_passant() {
@@ -943,73 +970,28 @@ fn get_capture_score(board: &Board, mv: &BitMove) -> MyVal {
         mv.get_dest()
     };
     let captured = board.piece_at_sq(dest);
-    debug_assert!(attacker.type_of().is_real() && captured.type_of().is_real());
+    if (!attacker.type_of().is_real()) || (!captured.type_of().is_real()) {
+        println!(
+            "Error in get_capture_score: attacker = {:?}, captured = {:?}",
+            attacker, captured
+        );
+        println!("Attack as usize = {}", attacker.type_of() as usize - 1);
+        println!("Captured as usize = {}", captured.type_of() as usize - 1);
+        panic!("THE ERROR");
+    }
 
     MVV_LVA[attacker.type_of() as usize - 1][captured.type_of() as usize - 1]
-}
-
-#[inline(always)]
-fn get_lmr_reduction(depth: i8, move_index: i32, is_pv_node: bool) -> i8 {
-    // let mut reduction =
-    //     0.75 + (depth as f64).ln() * (move_index as f64).ln() / 2.25;
-    // // let mut reduction = (depth as f64 - 1.0).max(0.0).sqrt() + (move_index as f64 - 1.0).max(0.0).sqrt();
-    // if is_pv_node {
-    //     // reduction /= 3.0;
-    //     reduction *= 0.5;
-    // }
-    // reduction.round() as i8
-
-//     1
-// 3
-// 2
-// 5
-// 3
-// 7
-    // if depth < 3 || move_index <= 3 {
-    //     return 1;
-    // }
-    // // simple integer heuristic: grows with depth & move_index
-    // let mut r = ((depth as i32 - 1) * (move_index - 1) / 10) as i8;
-    // if is_pv_node && r > 1 {
-    //     r -= 1; // reduce less in PV nodes
-    // }
-    // r.clamp(1, depth - 1)
-
-
-    if depth < 3 || move_index <= 1 {
-        return 1;
-    }
-
-    // Soft SF-like reduction
-    let mut r = (depth as i32 * move_index / 32) as i8;
-
-    if is_pv_node && r > 1 {
-        r -= 1;
-    }
-
-    r.clamp(1, depth - 1)
-
 }
 
 #[cfg(test)]
 mod tests {
     use pleco::{BitMove, Board};
 
-    use crate::{debug::Trace, debug::Tracing, final_search::MySearcher};
+    use crate::{debug::Trace, debug::Tracing, final_search::MySearcher};   
     fn ev_depth(fen: &str, depth: u8) -> BitMove {
         let mut board = Board::from_fen(fen).unwrap();
         let mut searcher = MySearcher::trace(Trace::new());
         searcher.find_best_move(&mut board, depth)
-    }
-
-    #[test]
-    fn test_lmr_reduction() {
-        println!("{}" , super::get_lmr_reduction(5, 4, false));
-        println!("{}" , super::get_lmr_reduction(5, 8, false));
-        println!("{}" , super::get_lmr_reduction(7, 4, false));
-        println!("{}" , super::get_lmr_reduction(7, 8, false));
-        println!("{}" , super::get_lmr_reduction(9, 4, false));
-        println!("{}" , super::get_lmr_reduction(9, 8, false));
     }
 
     #[test]

@@ -19,6 +19,7 @@ futures = "0.3"
 pleco = {path = "pleco" }
 book = {path = "book" }
 engine = { path = "engine" }
+nnue = { path = "nnue" }
 rand = "0.9.2"
 
 [profile.test]
