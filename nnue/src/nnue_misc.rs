@@ -73,7 +73,6 @@ impl EvalTrace {
 /// Promotion with capture: up to 3 entries (pawn removed from, captured piece removed, promoted piece added). This lets the NNUE accumulator update incrementally without rebuilding.
 #[derive(Clone, Debug)]
 pub struct DirtyPiece {
-    // fill with your move deltas, from/to, piece types, etc.
     // e.g., pub from: [Option<Square>; 2], pub to: [Option<Square>; 2], pub piece: [Piece; 2]
     pub dirty_num: usize,
     pub piece: [pleco::Piece; 3],
@@ -95,13 +94,18 @@ impl Default for DirtyPiece {
 impl DirtyPiece {
     pub fn from_move(board: &Board, mv: pleco::BitMove) -> Self {
         let mut dp = DirtyPiece::default();
-// DirtyPiece (types.h (line 276)) tracks up to three board changes per move: dirty_num says how many entries are valid, piece[i] is the piece type+color, and from[i]/to[i] are its source/destination (either may be SQ_NONE for creation/removal).
-// Ordinary moves (non-capture, non-promotion, non-castle) fill only entry 0 in do_move: piece[0]=moving piece, from[0]=from square, to[0]=to square, dirty_num=1 (position.cpp (line 820)).
-// Captures (including en passant) add entry 1: piece[1]=captured piece, from[1]=capture square, to[1]=SQ_NONE, and dirty_num becomes 2 (position.cpp (lines 771-779)).
-// Promotions replace the pawn and add the promoted piece: the pawn entry’s to[0] is set to SQ_NONE, and a new entry piece[dirty_num]=promotion piece, from=SQ_NONE, to=promotion square is appended before bumping dirty_num (position.cpp (lines 838-851)). If the promotion also captured something, the capture entry remains as above, so you can have 3 entries (moved pawn, captured piece, new promoted piece).
-// Castling skips the generic block and instead do_castling<true> writes two entries: king move and rook move, with dirty_num=2 (position.cpp (lines 909-920)).
+// DirtyPiece (types.h (line 276)) tracks up to three board changes per move: dirty_num says how many entries are valid,
+// piece[i] is the piece type+color, and from[i]/to[i] are its source/destination (either may be SQ_NONE for creation/removal).
+// Ordinary moves (non-capture, non-promotion, non-castle) fill only entry 0 in do_move: piece[0]=moving piece, from[0]=from square,
+// to[0]=to square, dirty_num=1 (position.cpp (line 820)).
+// Captures (including en passant) add entry 1: piece[1]=captured piece, from[1]=capture square, to[1]=SQ_NONE,
+// and dirty_num becomes 2 (position.cpp (lines 771-779)).
+// Promotions replace the pawn and add the promoted piece: the pawn entry’s to[0] is set to SQ_NONE, and a new entry piece[dirty_num]=promotion piece,
+// from=SQ_NONE, to=promotion square is appended before bumping dirty_num (position.cpp (lines 838-851)). If the promotion also captured something,
+// the capture entry remains as above, so you can have 3 entries (moved pawn, captured piece, new promoted piece).
+// Castling skips the generic block and instead do_castling<true> writes two entries: king move and rook move,
+// with dirty_num=2 (position.cpp (lines 909-920)).
 // These records are then consumed by NNUE to know exactly which features to update incrementally.
-
 
         let us = board.turn();
         let them = !us;

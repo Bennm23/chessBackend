@@ -9,7 +9,7 @@ use pleco::{Board, Piece, Player};
 use crate::accumulator::{Accumulator, AccumulatorCache, AccumulatorCaches, AccumulatorStack};
 use crate::constants::*;
 use crate::feature_transformer::FeatureTransformer;
-use crate::half_ka_v2_hm::make_index;
+use crate::feature_sets::make_index;
 use crate::layers::BucketNet;
 use crate::nnue_misc::{DirtyPiece, EvalTrace};
 use crate::nnue_utils::*;
@@ -255,9 +255,10 @@ pub fn load_big_nnue(path: impl AsRef<Path>) -> io::Result<Nnue> {
 #[cfg(test)]
 mod tests {
     use std::{
-        io::{Write, stdout},
         time::Instant,
     };
+
+    use crate::feature_sets::INPUT_DIM;
 
     use super::*;
 

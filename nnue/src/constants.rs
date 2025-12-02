@@ -24,8 +24,6 @@ pub const PSQT_BUCKETS: usize = 8;
 
 pub const MAX_PLY: usize = 64;
 
-// The feature set, halfka_v2_hm, uses 22,528 input features.
-pub const INPUT_DIM: usize = 22_528;
 pub const TRANSFORMED_FEATURE_DIM_BIG: usize = 3072;
 pub const TRANSFORMED_FEATURE_DIM_SMALL: usize = 128;
 pub const L1: usize = 3_072;

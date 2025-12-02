@@ -7,6 +7,8 @@ use pleco::{PieceType, Player, SQ};
 
 use crate::nnue_misc::DirtyPiece;
 
+// The feature set, halfka_v2_hm, uses 22,528 input features.
+pub const INPUT_DIM: usize = 22_528;
 
 const SQ_A1: u8 = 0;
 const SQ_H1: u8 = 7;
@@ -78,7 +80,6 @@ const ORIENT_TBL_BLACK: [u8; SQUARE_NB] = [
     SQ_H8, SQ_H8, SQ_H8, SQ_H8, SQ_A8, SQ_A8, SQ_A8, SQ_A8,
     SQ_H8, SQ_H8, SQ_H8, SQ_H8, SQ_A8, SQ_A8, SQ_A8, SQ_A8,
 ];
-// OrientTBL[perspective][ksq]
 const ORIENT_TBL: [[u8; SQUARE_NB]; COLOR_NB] = [ORIENT_TBL_WHITE, ORIENT_TBL_BLACK];
 
 #[inline]

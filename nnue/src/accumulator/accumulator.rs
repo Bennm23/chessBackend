@@ -1,10 +1,20 @@
-use core::{panic, task};
+use core::panic;
 use std::array::from_fn;
 
-use pleco::{BitBoard, Board, Piece, PieceType, Player};
+use pleco::{BitBoard, Board, Piece, Player};
 
-use crate::{constants::{COLOR_OPS, COLORS, MAX_PLY, PAWN_THROUGH_KING, PIECE_TYPE_NB, PSQT_BUCKETS, SQUARES, TRANSFORMED_FEATURE_DIM_BIG}, feature_transformer::FeatureTransformer, half_ka_v2_hm::{self, IndexList, MAX_ACTIVE_DIMENSIONS, append_changed_indices, requires_refresh}, nnue, nnue_misc::DirtyPiece};
-
+use crate::{
+    constants::{
+        COLOR_OPS, COLORS, MAX_PLY, PAWN_THROUGH_KING, PIECE_TYPE_NB, PSQT_BUCKETS, SQUARES,
+        TRANSFORMED_FEATURE_DIM_BIG,
+    },
+    feature_transformer::FeatureTransformer,
+    feature_sets::{
+        self, IndexList, MAX_ACTIVE_DIMENSIONS, append_changed_indices, requires_refresh,
+    },
+    nnue,
+    nnue_misc::DirtyPiece,
+};
 
 /// NNUE per-color accumulator holding the fully materialized feature sums.
 ///
@@ -56,7 +66,8 @@ impl AccumulatorState {
     pub fn get_accumulator_mut<const DIM: usize>(&mut self) -> &mut Accumulator<DIM> {
         if DIM == TRANSFORMED_FEATURE_DIM_BIG {
             unsafe {
-                &mut *(&mut self.big as *mut Accumulator<TRANSFORMED_FEATURE_DIM_BIG> as *mut Accumulator<DIM>)
+                &mut *(&mut self.big as *mut Accumulator<TRANSFORMED_FEATURE_DIM_BIG>
+                    as *mut Accumulator<DIM>)
             }
         } else {
             panic!("Unsupported dimension for accumulator retrieval");
@@ -72,7 +83,8 @@ impl AccumulatorState {
     pub fn get_accumulator<const DIM: usize>(&self) -> &Accumulator<DIM> {
         if DIM == TRANSFORMED_FEATURE_DIM_BIG {
             unsafe {
-                &*(&self.big as *const Accumulator<TRANSFORMED_FEATURE_DIM_BIG> as *const Accumulator<DIM>)
+                &*(&self.big as *const Accumulator<TRANSFORMED_FEATURE_DIM_BIG>
+                    as *const Accumulator<DIM>)
             }
         } else {
             panic!("Unsupported dimension for accumulator retrieval");
@@ -90,13 +102,12 @@ fn update_accumulator_refresh_cache<const DIM: usize>(
 ) {
     let king_sq = board.king_sq(perspective);
     let cache_entry = &mut cache.entries[king_sq.to_index()][perspective as usize];
-    
+
     let mut removed_features = IndexList::with_capacity(MAX_ACTIVE_DIMENSIONS);
     let mut added_features = IndexList::with_capacity(MAX_ACTIVE_DIMENSIONS);
 
     for c in [Player::White, Player::Black] {
         for pt in PAWN_THROUGH_KING {
-
             let piece = Piece::make_lossy(c, pt);
             let old_bb = cache_entry.by_color_bb[c as usize] & cache_entry.by_type_bb[pt as usize];
             let new_bb = board.piece_bb(c, pt);
@@ -106,14 +117,23 @@ fn update_accumulator_refresh_cache<const DIM: usize>(
 
             while to_remove.is_not_empty() {
                 let sq = to_remove.pop_lsb();
-                removed_features.push(half_ka_v2_hm::make_index(perspective as usize, sq.0, piece as usize, king_sq.0));
+                removed_features.push(feature_sets::make_index(
+                    perspective as usize,
+                    sq.0,
+                    piece as usize,
+                    king_sq.0,
+                ));
             }
 
             while to_add.is_not_empty() {
                 let sq = to_add.pop_lsb();
-                added_features.push(half_ka_v2_hm::make_index(perspective as usize, sq.0, piece as usize, king_sq.0));
+                added_features.push(feature_sets::make_index(
+                    perspective as usize,
+                    sq.0,
+                    piece as usize,
+                    king_sq.0,
+                ));
             }
-
         }
     }
     accum.computed[perspective as usize] = true;
@@ -122,23 +142,22 @@ fn update_accumulator_refresh_cache<const DIM: usize>(
 
     for index in &removed_features {
         let offset = DIM * index;
-        for j in 0 .. DIM {
+        for j in 0..DIM {
             cache_entry.accumulation[j] -= ft.weights[offset + j];
         }
-        for k in 0 .. PSQT_BUCKETS {
+        for k in 0..PSQT_BUCKETS {
             cache_entry.psqt_accum[k] -= ft.psqt_weights[index * PSQT_BUCKETS + k];
         }
     }
     for index in &added_features {
         let offset = DIM * index;
-        for j in 0 .. DIM {
+        for j in 0..DIM {
             cache_entry.accumulation[j] += ft.weights[offset + j];
         }
-        for k in 0 .. PSQT_BUCKETS {
+        for k in 0..PSQT_BUCKETS {
             cache_entry.psqt_accum[k] += ft.psqt_weights[index * PSQT_BUCKETS + k];
         }
     }
-
 
     // Cache Entry Accum is updated, copy to Accumulator
     accum.accumulation[perspective as usize].copy_from_slice(&cache_entry.accumulation);
@@ -170,7 +189,6 @@ fn update_accumulator_incremental<const DIM: usize>(
     target_index: usize,
     current_index: usize,
 ) {
-
     // Split the references to avoid multiple borrows
     let (current_state, target_state) = if direction == Direction::Forward {
         assert!(target_index == current_index + 1);
@@ -192,7 +210,7 @@ fn update_accumulator_incremental<const DIM: usize>(
             ksq.0,
             &target_state.dirty_piece,
             &mut removed,
-            &mut added
+            &mut added,
         );
     } else {
         append_changed_indices(
@@ -200,7 +218,7 @@ fn update_accumulator_incremental<const DIM: usize>(
             ksq.0,
             &current_state.dirty_piece,
             &mut added,
-            &mut removed
+            &mut removed,
         );
     }
 
@@ -211,11 +229,12 @@ fn update_accumulator_incremental<const DIM: usize>(
     assert!(current_accum.computed[perspective as usize]);
     assert!(!target_accum.computed[perspective as usize]);
 
-
     if removed.is_empty() && added.is_empty() {
         // No changes, just copy over
-        target_accum.accumulation[perspective as usize].copy_from_slice(&current_accum.accumulation[perspective as usize]);
-        target_accum.psqt_accum[perspective as usize].copy_from_slice(&current_accum.psqt_accum[perspective as usize]);
+        target_accum.accumulation[perspective as usize]
+            .copy_from_slice(&current_accum.accumulation[perspective as usize]);
+        target_accum.psqt_accum[perspective as usize]
+            .copy_from_slice(&current_accum.psqt_accum[perspective as usize]);
         target_accum.computed[perspective as usize] = true;
     } else {
         assert!(added.len() == 1 || added.len() == 2);
@@ -228,26 +247,32 @@ fn update_accumulator_incremental<const DIM: usize>(
 
         //TODO: Vector Ops ?
         // Start from current accumulator
-        target_accum.accumulation[perspective as usize].copy_from_slice(&current_accum.accumulation[perspective as usize]);
-        target_accum.psqt_accum[perspective as usize].copy_from_slice(&current_accum.psqt_accum[perspective as usize]);
+        target_accum.accumulation[perspective as usize]
+            .copy_from_slice(&current_accum.accumulation[perspective as usize]);
+        target_accum.psqt_accum[perspective as usize]
+            .copy_from_slice(&current_accum.psqt_accum[perspective as usize]);
 
         for index in removed {
             let offset = DIM * index;
-            for i in 0 .. DIM {
-                target_accum.accumulation[perspective as usize][i] -= ft.weights[offset + i];
+            for i in 0..DIM {
+                target_accum.accumulation[perspective as usize][i] -= 
+                    ft.weights[offset + i];
             }
-            for i in 0 .. PSQT_BUCKETS {
-                target_accum.psqt_accum[perspective as usize][i] -= ft.psqt_weights[index * PSQT_BUCKETS + i];
+            for i in 0..PSQT_BUCKETS {
+                target_accum.psqt_accum[perspective as usize][i] -=
+                    ft.psqt_weights[index * PSQT_BUCKETS + i];
             }
         }
-    
+
         for index in added {
             let offset = DIM * index;
-            for i in 0 .. DIM {
-                target_accum.accumulation[perspective as usize][i] += ft.weights[offset + i];
+            for i in 0..DIM {
+                target_accum.accumulation[perspective as usize][i] +=
+                    ft.weights[offset + i];
             }
-            for i in 0 .. PSQT_BUCKETS {
-                target_accum.psqt_accum[perspective as usize][i] += ft.psqt_weights[index * PSQT_BUCKETS + i];
+            for i in 0..PSQT_BUCKETS {
+                target_accum.psqt_accum[perspective as usize][i] +=
+                    ft.psqt_weights[index * PSQT_BUCKETS + i];
             }
         }
     }
@@ -257,7 +282,7 @@ fn update_accumulator_incremental<const DIM: usize>(
 
 pub struct AccumulatorStack {
     //TODO: Should this be cache aligned? Should I use box?
-    accumulators: Box<[AccumulatorState; 32]>,// MAX_PLY
+    accumulators: Box<[AccumulatorState; 32]>, // MAX_PLY
     current_index: usize,
 }
 
@@ -271,7 +296,7 @@ impl AccumulatorStack {
 
     pub fn reset(&mut self, board: &Board, nnue: &nnue::Nnue, caches: &mut AccumulatorCaches) {
         self.current_index = 1;
-        
+
         update_accumulator_refresh_cache::<TRANSFORMED_FEATURE_DIM_BIG>(
             Player::White,
             &nnue.ft,
@@ -302,18 +327,22 @@ impl AccumulatorStack {
         }
         0 // Fallback to the base accumulator
     }
-    pub fn evaluate<const DIM: usize>(&mut self, board: &Board, ft: &FeatureTransformer<DIM>, cache: &mut AccumulatorCache<DIM>) {
-
-        self.evaluate_side(Player::White, board, ft, cache);
-        self.evaluate_side(Player::Black, board, ft, cache);
-
-    }
-    pub fn evaluate_side<const DIM: usize>(
-        &mut self, perspective: Player,
-        board: &Board, ft: &FeatureTransformer<DIM>,
+    pub fn evaluate<const DIM: usize>(
+        &mut self,
+        board: &Board,
+        ft: &FeatureTransformer<DIM>,
         cache: &mut AccumulatorCache<DIM>,
     ) {
-
+        self.evaluate_side(Player::White, board, ft, cache);
+        self.evaluate_side(Player::Black, board, ft, cache);
+    }
+    pub fn evaluate_side<const DIM: usize>(
+        &mut self,
+        perspective: Player,
+        board: &Board,
+        ft: &FeatureTransformer<DIM>,
+        cache: &mut AccumulatorCache<DIM>,
+    ) {
         let last_usable_accum = self.find_last_usable_accumulator(perspective);
 
         if self.accumulators[last_usable_accum].big.computed[perspective as usize] {
@@ -324,15 +353,10 @@ impl AccumulatorStack {
                 ft,
                 board,
                 self.accumulators[last_usable_accum].get_accumulator_mut::<DIM>(),
-                cache
+                cache,
             );
 
-            self.backward_update_incremental::<DIM>(
-                perspective,
-                board,
-                ft,
-                last_usable_accum,
-            );
+            self.backward_update_incremental::<DIM>(perspective, board, ft, last_usable_accum);
         }
     }
 
@@ -341,17 +365,19 @@ impl AccumulatorStack {
         perspective: Player,
         board: &Board,
         ft: &FeatureTransformer<DIM>,
-        start_index: usize, 
+        start_index: usize,
     ) {
-
         assert!(start_index < self.accumulators.len());
-        assert!(self.accumulators[start_index].get_accumulator::<DIM>().computed[perspective as usize]);
-        
+        assert!(
+            self.accumulators[start_index]
+                .get_accumulator::<DIM>()
+                .computed[perspective as usize]
+        );
 
         let ksq = board.king_sq(perspective);
 
         for next in (start_index + 1)..self.current_index {
-           update_accumulator_incremental::<DIM>(
+            update_accumulator_incremental::<DIM>(
                 perspective,
                 Direction::Forward,
                 ft,
@@ -359,8 +385,7 @@ impl AccumulatorStack {
                 &mut self.accumulators.as_mut_slice(),
                 next,
                 next - 1,
-
-            ); 
+            );
         }
 
         assert!(self.current().is_computed::<DIM>(perspective));
@@ -370,19 +395,16 @@ impl AccumulatorStack {
         perspective: Player,
         board: &Board,
         ft: &FeatureTransformer<DIM>,
-        end_index: usize, 
+        end_index: usize,
     ) {
-
         assert!(end_index < self.accumulators.len());
         assert!(end_index < self.current_index);
         assert!(self.current().is_computed::<DIM>(perspective));
 
-        
-
         let ksq = board.king_sq(perspective);
 
-        for next in (end_index .. self.current_index - 1).rev() {
-           update_accumulator_incremental::<DIM>(
+        for next in (end_index..self.current_index - 1).rev() {
+            update_accumulator_incremental::<DIM>(
                 perspective,
                 Direction::Backward,
                 ft,
@@ -390,7 +412,7 @@ impl AccumulatorStack {
                 &mut self.accumulators.as_mut_slice(),
                 next,
                 next + 1,
-            ); 
+            );
         }
 
         assert!(self.current().is_computed::<DIM>(perspective));
@@ -415,7 +437,6 @@ impl AccumulatorStack {
         &mut self.accumulators[self.current_index - 1]
     }
 }
-
 
 pub struct AccumulatorCaches {
     pub big: AccumulatorCache<TRANSFORMED_FEATURE_DIM_BIG>,
@@ -442,7 +463,7 @@ pub struct CacheEntry<const DIM: usize> {
     pub accumulation: [i16; DIM],
     pub psqt_accum: [i32; PSQT_BUCKETS],
     /// Bitboards of pieces by color
-    pub by_color_bb: [BitBoard; COLORS],      
+    pub by_color_bb: [BitBoard; COLORS],
     /// Bitboards of pieces by type for both colors
     pub by_type_bb: [BitBoard; PIECE_TYPE_NB],
 }
@@ -460,12 +481,14 @@ impl<const DIM: usize> CacheEntry<DIM> {
 impl<const DIM: usize> AccumulatorCache<DIM> {
     pub fn new() -> Self {
         Self {
-            entries: from_fn(|_| from_fn(|_| CacheEntry {
-                accumulation: [0; DIM],
-                psqt_accum: [0; PSQT_BUCKETS],
-                by_color_bb: [BitBoard(0); COLORS],
-                by_type_bb: [BitBoard(0); PIECE_TYPE_NB],
-            })),
+            entries: from_fn(|_| {
+                from_fn(|_| CacheEntry {
+                    accumulation: [0; DIM],
+                    psqt_accum: [0; PSQT_BUCKETS],
+                    by_color_bb: [BitBoard(0); COLORS],
+                    by_type_bb: [BitBoard(0); PIECE_TYPE_NB],
+                })
+            }),
         }
     }
 

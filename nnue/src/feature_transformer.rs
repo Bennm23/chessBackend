@@ -6,13 +6,10 @@ use std::{
 use pleco::Board;
 
 use crate::{
-    accumulator::{Accumulator, AccumulatorCache, AccumulatorStack},
-    constants::*,
-    nnue_utils::*,
-    vectors::{
+    accumulator::{AccumulatorCache, AccumulatorStack}, constants::*, feature_sets::INPUT_DIM, nnue_utils::*, vectors::{
         MAX_CHUNK_SIZE, Vec_T, vec_max_16, vec_min_16, vec_mulhi_16, vec_packus_16, vec_set1_16,
         vec_slli_16, vec_zero,
-    },
+    }
 };
 
 type OutputType = u8;
