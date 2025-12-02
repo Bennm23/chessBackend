@@ -23,10 +23,10 @@ use axum::{
     Router,
 };
 use futures::StreamExt;
-use std::{env, net::SocketAddr};
+use tokio::sync::RwLock;
+use std::{env, net::SocketAddr, sync::LazyLock};
 use tower_http::cors::{Any, CorsLayer};
 
-// mod test_ops;
 
 static BOOK: std::sync::LazyLock<Book> = std::sync::LazyLock::new(
     || book::load_from_ron(
@@ -54,6 +54,7 @@ async fn backend() {
     axum::serve(listener, app).await.unwrap();
 }
 
+mod test_ops;
 #[tokio::main]
 async fn main() {
     // test_ops::test_suite();
@@ -110,7 +111,7 @@ async fn handle_socket(mut socket: WebSocket) {
                     }
                     let mv = match book_opt {
                         Some(bm) => bm,
-                        None => engine::final_search::start_search(&mut board),
+                        None => engine::search_test::start_search(&mut board),
                     };
 
                     // Dummy best move logic
@@ -126,7 +127,7 @@ async fn handle_socket(mut socket: WebSocket) {
                 Ok(ClientMessage::GetBoardEval { fen }) => {
                     println!("Received FEN for eval: {}", fen);
                     let mut board = pleco::Board::from_fen(&fen).expect("Board Fen Create Failed");
-                    let score = engine::final_search::eval_search(&mut board);
+                    let score = engine::search_test::eval_search(&mut board);
                     let eval = ServerMessage::BoardEval { score };
 
                     if socket.send(Message::Text(serde_json::to_string(&eval).unwrap().into())).await.is_err() {

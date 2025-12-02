@@ -1168,7 +1168,7 @@ pub fn test_suite() {
     const GAMES: usize = 10;
     println!("Playing {} games...", GAMES);
 
-    let mut new_is_white: bool = false;
+    let mut new_is_white: bool = true;
     let start = Instant::now();
 
     let mut new_wins = 0f32;
@@ -1181,11 +1181,16 @@ pub fn test_suite() {
     const SEARCH_TIME: Option<u128> = Some(500);
     const SEARCH_DEPTH: u8 = 255;
 
+    // let nnue =
+    //     nnue::nnue::load_big_nnue("/home/bmellin/chess/chessBackendWebFinal/nn-1c0000000000.nnue").unwrap();
+
+    let mut nnue_eval = nnue::nnue::NnueEvaluator::new();
+
     for game in 0..GAMES {
         let mut board = pleco::Board::default();
         // new_is_white = random_bool(0.5);
         let mut board =
-            pleco::Board::from_fen(EARLY_BALANCED_FENS[game % EARLY_BALANCED_FENS.len()])
+            pleco::Board::from_fen(EARLY_BALANCED_FENS[(game + 20) % EARLY_BALANCED_FENS.len()])
                 .expect("Fen parse failed");
         // if game >= EARLY_BALANCED_FENS.len() {
         //     board =
@@ -1214,7 +1219,7 @@ pub fn test_suite() {
             turn_count += 1;
             let mv = if (white_to_move && new_is_white) || (!white_to_move && !new_is_white) {
                 // New engine to move
-                engine::search_test::search_to_depth_and_time(&mut board, SEARCH_DEPTH, SEARCH_TIME)
+                engine::search_test::search_to_depth_and_time(&mut nnue_eval, &mut board, SEARCH_DEPTH, SEARCH_TIME)
             } else {
                 // Old engine to move
                 engine::final_search::search_to_depth_and_time(&mut board, SEARCH_DEPTH, SEARCH_TIME)

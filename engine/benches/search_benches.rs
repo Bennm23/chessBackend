@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::LazyLock, time::Duration};
 
 use criterion::{BatchSize, Bencher, BenchmarkId, Criterion, black_box, criterion_group};
 use engine::{
@@ -75,33 +75,67 @@ const SEARCH_DEPTHS: [u8; 3] = [6, 7, 8];
 //         .warm_up_time(Duration::from_secs(1));
 //     targets = bench_engine_search
 // );
+// use once_cell::sync::Lazy;
+use std::sync::Mutex;
+use nnue::nnue::{load_big_nnue, NnueEvaluator};
+
+static NNUE_EVAL: LazyLock<Mutex<NnueEvaluator>> = LazyLock::new(|| {
+    // let nnue = load_big_nnue("nn-1c0000000000.nnue")
+    //     .expect("failed to load nnue file");
+    Mutex::new(NnueEvaluator::new())
+});
+
+
 fn bench_search_kiwipete(b: &mut Bencher, depth: u8) {
     b.iter_batched(
-        || {
-            (
-                Board::from_fen(KIWIPETE).expect("KIWIPETE Init Failed"),
-                MySearcher::new(NoTrace::new(), None),
-            )
-        },
-        |(mut board, mut searcher)| {
-            let mov = black_box(searcher.find_best_move(&mut board, depth));
-            board.apply_move(mov);
-            black_box(searcher.find_best_move(&mut board, depth));
+        || Board::start_pos(),
+        |mut board| {
+            let mv = run_search(&mut board, depth);
+            board.apply_move(mv);
+            run_search(&mut board, depth);
         },
         BatchSize::PerIteration,
-    )
+    );
+    // b.iter_batched(
+    //     || {
+    //         (
+    //             Board::from_fen(KIWIPETE).expect("KIWIPETE Init Failed"),
+    //             MySearcher::new(NoTrace::new(), None),
+    //         )
+    //     },
+    //     |(mut board, mut searcher)| {
+    //         let mov = black_box(searcher.find_best_move(&mut board, depth));
+    //         board.apply_move(mov);
+    //         black_box(searcher.find_best_move(&mut board, depth));
+    //     },
+    //     BatchSize::PerIteration,
+    // )
 }
-
+fn run_search(board: &mut Board, depth: u8) -> pleco::BitMove {
+    // let mut guard = NNUE_EVAL.lock().unwrap();
+    // let mut searcher = MySearcher::new(&mut *guard, NoTrace::new(), None);
+    let mut searcher = MySearcher::new(NoTrace::new(), None);
+    black_box(searcher.find_best_move(board, depth))
+}
 fn bench_search_default(b: &mut Bencher, depth: u8) {
     b.iter_batched(
-        || (Board::start_pos(), MySearcher::new(NoTrace::new(), None)),
-        |(mut board, mut searcher)| {
-            let mov = black_box(searcher.find_best_move(&mut board, depth));
-            board.apply_move(mov);
-            black_box(searcher.find_best_move(&mut board, depth));
+        || Board::start_pos(),
+        |mut board| {
+            let mv = run_search(&mut board, depth);
+            board.apply_move(mv);
+            run_search(&mut board, depth);
         },
         BatchSize::PerIteration,
-    )
+    );
+    // b.iter_batched(
+    //     || (Board::start_pos(), MySearcher::new(NoTrace::new(), None)),
+    //     |(mut board, mut searcher)| {
+    //         let mov = black_box(searcher.find_best_move(&mut board, depth));
+    //         board.apply_move(mov);
+    //         black_box(searcher.find_best_move(&mut board, depth));
+    //     },
+    //     BatchSize::PerIteration,
+    // )
 }
 
 fn bench_engine_search(c: &mut Criterion) {

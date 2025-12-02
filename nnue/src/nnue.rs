@@ -3,17 +3,23 @@ use std::fs::File;
 use std::io::{self, BufReader, Read};
 use std::path::Path;
 use std::sync::LazyLock;
+use std::sync::LazyLock;
 
 use pleco::{Board, Piece, Player};
 
+use crate::accumulator::{Accumulator, AccumulatorCache, AccumulatorCaches, AccumulatorStack};
 use crate::accumulator::{Accumulator, AccumulatorCache, AccumulatorCaches, AccumulatorStack};
 use crate::constants::*;
 use crate::feature_transformer::FeatureTransformer;
 use crate::half_ka_v2_hm::make_index;
 use crate::layers::BucketNet;
 use crate::nnue_misc::{DirtyPiece, EvalTrace};
+use crate::nnue_misc::{DirtyPiece, EvalTrace};
 use crate::nnue_utils::*;
 
+static NNUE_BIG : LazyLock<Nnue> = LazyLock::new(||
+    load_big_nnue("/home/bmellin/chess/chessBackendWebFinal/nn-1c0000000000.nnue").expect("Failed to load NNUE")
+);
 static NNUE_BIG : LazyLock<Nnue> = LazyLock::new(||
     load_big_nnue("/home/bmellin/chess/chessBackendWebFinal/nn-1c0000000000.nnue").expect("Failed to load NNUE")
 );
@@ -131,7 +137,38 @@ impl EvalResult {
 
 }
 
+pub struct EvalResult {
+    pub psqt: i32,
+    pub positional: i32,
+}
+
+impl EvalResult {
+    pub fn raw_fmt(&self) -> String {
+        format!("PSQT: {}, Positional: {}, Scaled Total: {}", self.psqt, self.positional, self.scaled_total())
+    }
+    pub fn cp_fmt(&self, board: &Board) -> String {
+        format!(
+            "CP -> PSQT: {}, Positional: {}, Scaled Total: {}",
+            format_cp_aligned_dot(self.psqt, board),
+            format_cp_aligned_dot(self.positional, board),
+            format_cp_aligned_dot(self.scaled_total(), board)
+        )
+    }
+
+    pub fn scaled_total(&self) -> i32 {
+        (125 * self.psqt + 131 * self.positional) / 128
+    }
+
+}
+
 impl Nnue {
+    pub fn evaluate(
+        &self,
+        board: &Board,
+        accum_stack: &mut AccumulatorStack,
+        accum_cache: &mut AccumulatorCache<TRANSFORMED_FEATURE_DIM_BIG>
+    ) -> EvalResult {
+        let bucket: usize = (board.count_all_pieces() as usize - 1) / 4;
     pub fn evaluate(
         &self,
         board: &Board,
@@ -144,7 +181,28 @@ impl Nnue {
 
         let mut buf = self.ft.new_output_buffer();
         let psqt = self.ft.transform_full(
+        let mut buf = self.ft.new_output_buffer();
+        let psqt = self.ft.transform_full(
             board,
+            accum_stack,
+            accum_cache,
+            buf.as_mut_ptr(),
+            bucket
+        );
+
+        // We now have buf filled with transformed features for this bucket
+        // need to run through net
+        let positional = self.buckets[bucket].propagate(buf.as_ptr());
+
+        EvalResult { psqt: psqt / OUTPUT_SCALE, positional: positional / OUTPUT_SCALE }
+    }
+
+    pub fn trace_eval(
+        &self,
+        board: &Board,
+        accum_stack: &mut AccumulatorStack,
+        accum_cache: &mut AccumulatorCache<TRANSFORMED_FEATURE_DIM_BIG>
+    ) -> EvalTrace {
             accum_stack,
             accum_cache,
             buf.as_mut_ptr(),
@@ -173,13 +231,21 @@ impl Nnue {
 
             let mut buf = self.ft.new_output_buffer();
             let psqt = self.ft.transform_full(
+            let mut buf = self.ft.new_output_buffer();
+            let psqt = self.ft.transform_full(
                 board,
                 accum_stack,
                 accum_cache,
                 buf.as_mut_ptr(),
                 bucket
             );
+                accum_stack,
+                accum_cache,
+                buf.as_mut_ptr(),
+                bucket
+            );
 
+            trace.psqt[bucket] = psqt / OUTPUT_SCALE;
             trace.psqt[bucket] = psqt / OUTPUT_SCALE;
 
             // We now have buf filled with transformed features for this bucket
@@ -253,12 +319,13 @@ pub fn load_big_nnue(path: impl AsRef<Path>) -> io::Result<Nnue> {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Instant;
+    use std::{io::{Write, stdout}, time::Instant};
 
     use super::*;
 
     #[test]
     fn test_load_big_nnue() {
+        let nnue =
         let nnue =
             load_big_nnue("/home/bmellin/chess/chessBackendWebFinal/nn-1c0000000000.nnue").unwrap();
         println!("{:#?}", nnue);
@@ -376,6 +443,33 @@ mod tests {
         trace = evaluator.trace_eval(&board);
         trace.print(&board);
 
+        let mv = *board.generate_moves().get(0).unwrap();
+        let start = Instant::now();
+        // println!("Applying move: {}", mv);
+        evaluator.do_move(&board, mv);
+        board.apply_move(mv);
+
+        trace = evaluator.trace_eval(&board);
+        trace.print(&board);
+
+        evaluator.undo_move();
+        board.undo_move();
+
+        trace = evaluator.trace_eval(&board);
+        trace.print(&board);
+
+        //30-50 us move -> undo
+        //20 us just eval
+        println!("Full Trace took {} µs", start.elapsed().as_micros());
+    }
+
+    #[test]
+    fn instantiate_test() {
+        let start = Instant::now();
+        let _evaluator = NnueEvaluator::new();
+        println!("Instantiation took {} µs", start.elapsed().as_micros());
+    
+        println!("NNUE SIZE = {} MB", std::mem::size_of::<NnueEvaluator>() as f64 / 1_048_576f64 );
         //30-50 us move -> undo
         //20 us just eval
         println!("Full Trace took {} µs", start.elapsed().as_micros());

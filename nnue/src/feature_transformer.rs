@@ -204,4 +204,96 @@ impl<const FEATURE_DIM: usize> FeatureTransformer<FEATURE_DIM> {
 
         psqt
     }
+    pub fn transform_full(
+        &self,
+        board: &Board,
+        accumulator_stack: &mut AccumulatorStack,
+        accumulator_cache: &mut AccumulatorCache<FEATURE_DIM>,
+        output: *mut OutputType,
+        bucket: usize
+    ) -> i32 {
+        // 0 = WHITE, 1 = BLACK
+        let perspectives = [board.turn(), !board.turn()];
+
+        accumulator_stack.evaluate(board, self, accumulator_cache);
+
+        let accum = accumulator_stack.current().get_accumulator::<FEATURE_DIM>();
+
+        let psqt = (accum.psqt_accum[perspectives[0] as usize][bucket as usize]
+            - accum.psqt_accum[perspectives[1] as usize][bucket as usize])
+            / 2;
+
+        // Layer computation
+
+        // build aligned output buffer for FT
+        let output_dim: usize = self.output_dims();
+
+        for player in 0..COLORS {
+            // Offset into buffer for this color
+            // FT output is [White features | Black features], each is OUTPUT_DIM/2 entries
+            let buff_offset = player * (self.output_dims() / 2);
+
+            if cfg!(target_feature = "avx2") {
+                const OUTPUT_CHUNK_SIZE: usize = MAX_CHUNK_SIZE;
+                assert!((self.output_dims() / 2) % OUTPUT_CHUNK_SIZE == 0);
+                let num_output_chunks = self.output_dims() / 2 / OUTPUT_CHUNK_SIZE;
+
+                let zero: Vec_T = vec_zero();
+                let one: Vec_T = vec_set1_16(127 * 2);
+
+                let in0: *const Vec_T = accum.accumulation[perspectives[player] as usize].as_ptr().cast();
+                let in1: *const Vec_T = unsafe {
+                    accum.accumulation[perspectives[player] as usize].as_ptr().add(L1 / 2).cast()
+                };
+                let out_ptr: *mut Vec_T = unsafe { output.add(buff_offset).cast() };
+
+                const SHIFT: i32 = 7; // predifined shift as long as SSSE2 is supported
+
+                // Loop runs over NumOutputChunks blocks inside nnue/nnue_feature_transformer.h (line 382).
+                // Each block represents MaxChunkSize transformed outputs (e.g. 32 or 64 values, depending on SIMD width).
+                // For each chunk it loads two SIMD vectors from the first accumulator half (in0) and two from the second half (in1),
+                //   clips them to [0, 254], left-shifts the first pair (preparing for later right shift), and then multiplies the pairs with vec_mulhi_16 so the product is effectively divided by 512.
+                // The resulting two vectors (pa, pb) are packed via vec_packus_16 into a single byte vector and written to out[j], producing the final transformed features for that chunk.
+                // Net effect: it computes output[offset + j] = clamp(sum0,0,254) * clamp(sum1,0,254) / 512 but does it MaxChunkSize elements at a time using SIMD,
+                //   which is why it iterates over NumOutputChunks rather than every index individually.
+                for j in 0..num_output_chunks {
+                    let sum0a: Vec_T = vec_slli_16::<SHIFT>(vec_max_16(
+                        vec_min_16(unsafe { *in0.add(j * 2 + 0) }, one),
+                        zero,
+                    ));
+                    let sum0b: Vec_T = vec_slli_16::<SHIFT>(vec_max_16(
+                        vec_min_16(unsafe { *in0.add(j * 2 + 1) }, one),
+                        zero,
+                    ));
+
+                    let sum1a = vec_min_16(unsafe { *in1.add(j * 2 + 0) }, one);
+                    let sum1b = vec_min_16(unsafe { *in1.add(j * 2 + 1) }, one);
+
+                    let pa = vec_mulhi_16(sum0a, sum1a);
+                    let pb = vec_mulhi_16(sum0b, sum1b);
+
+                    unsafe {
+                        out_ptr.add(j).write(vec_packus_16(pa, pb));
+                    }
+                }
+            } else {
+                for j in 0..self.output_dims() / 2 {
+
+                    let mut sum0: i16 =
+                        (accum.accumulation[perspectives[player] as usize][j] / 2) as i16;
+                    let mut sum1 = (accum.accumulation[perspectives[player] as usize]
+                        [j + output_dim / 2]
+                        / 2) as i16;
+                    sum0 = sum0.clamp(0, 254);
+                    sum1 = sum1.clamp(0, 254);
+
+                    unsafe {
+                        *output.add(buff_offset + j) = ((sum0 as i32 * sum1 as i32) / 512) as u8;
+                    }
+                }
+            }
+        }
+
+        psqt
+    }
 }

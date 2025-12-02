@@ -1,14 +1,32 @@
 ## 251157f65589d1d76278fff3959171a2c94d7309
 
 ### bench baseline
-Search Default Depth 6  time:   [45.653 ms 46.536 ms 48.416 ms]
-Search Default Depth 7  time:   [76.449 ms 76.884 ms 77.582 ms]
-Search Default Depth 8  time:   [352.61 ms 353.15 ms 353.69 ms]
+Search Default Depth 6  time:   [62.141 ms 62.450 ms 62.858 ms]
+Search Default Depth 7  time:   [110.48 ms 111.31 ms 112.00 ms]
+Search Default Depth 8  time:   [396.06 ms 397.35 ms 398.63 ms]
 
-Search Kiwipete Depth 6 time:   [721.82 ms 723.11 ms 724.23 ms]
-Search Kiwipete Depth 7 time:   [2.7991 s 2.8121 s 2.8287 s]
-Search Kiwipete Depth 8 time:   [6.8075 s 6.8283 s 6.8546 s]
+Search Kiwipete Depth 6 time:   [68.298 ms 68.488 ms 68.819 ms]
+Search Kiwipete Depth 7 time:   [110.11 ms 112.04 ms 113.95 ms]
+Search Kiwipete Depth 8 time:   [374.66 ms 376.37 ms 378.06 ms]
 
+
+## nnue eval
+Search Default Depth 6  time:   [63.514 ms 64.049 ms 64.692 ms]
+Search Default Depth 7  time:   [147.64 ms 148.52 ms 149.80 ms]
+Search Default Depth 8  time:   [332.26 ms 333.70 ms 335.23 ms]
+
+Search Kiwipete Depth 6 time:   [63.484 ms 63.899 ms 64.634 ms]
+Search Kiwipete Depth 7 time:   [140.47 ms 141.87 ms 145.08 ms]
+Search Kiwipete Depth 8 time:   [333.35 ms 335.01 ms 336.60 ms]
+
+### matches
+0-10
+1-9-0
+10-20
+3-6-1
+20-30
+2-7-1
+flipped 6-4-0
 ## sort unstable
 
 ### bench

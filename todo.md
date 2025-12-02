@@ -1,6 +1,8 @@
 # Work to Do
 - implement layer sizes with traits?
 - cleanup nnue and add docs
+- implement layer sizes with traits?
+- cleanup nnue and add docs
 - nnue evaluation
 - fmt files
 
