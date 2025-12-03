@@ -2,7 +2,7 @@ use std::{fmt::Debug, io::{self, Read}};
 
 use aligned_vec::AVec;
 
-use crate::{constants::{CACHE_ALIGN, USE_AVX2, USE_SSSE3, VectorAlignment}, nnue_utils::{ceil_to_multiple, read_i8, read_i32_vec}, vectors::{Vec_T, m256_hadd, vec_add_dpbusd_epi32, vec_set1_32, vec_zero}};
+use crate::{constants::{CACHE_ALIGN, USE_AVX2, USE_SSSE3, VectorAlignment}, nnue_utils::{ceil_to_multiple, read_i8, read_i32_vec}, vectors::{VecT, m256_hadd, vec_add_dpbusd_epi32, vec_set1_32, vec_zero}};
 
 pub type InputType = u8;
 pub type OutputType = i32;
@@ -88,14 +88,14 @@ impl AffineTransform {
         
         if self.output_dims > 1 {
 
-            const OUTPUT_SIMD_WIDTH: usize = std::mem::size_of::<Vec_T>() / std::mem::size_of::<OutputType>();
+            const OUTPUT_SIMD_WIDTH: usize = std::mem::size_of::<VecT>() / std::mem::size_of::<OutputType>();
             debug_assert!(self.output_dims % OUTPUT_SIMD_WIDTH == 0);
 
             let num_chunks = ceil_to_multiple(self.input_dims, 8) / 4;
             let num_regs = self.output_dims / OUTPUT_SIMD_WIDTH;
 
             let input32: *const i32 = input.cast();
-            let bias_vector: *const Vec_T = self.biases.as_ptr().cast();
+            let bias_vector: *const VecT = self.biases.as_ptr().cast();
             let mut acc = vec![vec_zero(); num_regs];
 
             for k in 0 .. num_regs {
@@ -103,7 +103,7 @@ impl AffineTransform {
             }
             for i in 0 .. num_chunks {
                 let in0 = vec_set1_32( unsafe { *input32.add(i) });
-                let col0: *const Vec_T = unsafe {
+                let col0: *const VecT = unsafe {
                     self.weights.as_ptr()
                         .add(i * self.output_dims * 4)
                         .cast()
@@ -118,19 +118,19 @@ impl AffineTransform {
                 }
             }
 
-            let outptr: *mut Vec_T = output.cast();
+            let outptr: *mut VecT = output.cast();
             for k in 0 .. num_regs {
                 unsafe {*outptr.add(k) = acc[k]; }
             }
 
         } else if self.output_dims == 1 {
         
-            let input_vector: *const Vec_T = input.cast();
-            const INPUT_SIMD_WIDTH: usize = std::mem::size_of::<Vec_T>() / std::mem::size_of::<InputType>();
+            let input_vector: *const VecT = input.cast();
+            const INPUT_SIMD_WIDTH: usize = std::mem::size_of::<VecT>() / std::mem::size_of::<InputType>();
             debug_assert!(self.padded_input_dims % INPUT_SIMD_WIDTH == 0);
             let num_chunks = self.padded_input_dims / INPUT_SIMD_WIDTH;
             let mut sum0 = vec_zero();
-            let row0: *const Vec_T = self.weights.as_ptr().cast();
+            let row0: *const VecT = self.weights.as_ptr().cast();
             for j in 0 .. num_chunks {
                 let in_vec = unsafe { *input_vector.add(j) };
                 vec_add_dpbusd_epi32(

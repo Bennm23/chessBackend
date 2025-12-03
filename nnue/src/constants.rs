@@ -17,6 +17,9 @@ pub const PAWN_THROUGH_KING: [PieceType; 6] = [
     PieceType::K,
 ];
 
+pub type WeightType = i16;
+pub type PsqtWeightType = i32;
+
 pub const VERSION: u32 = 0x7AF32F20;
 pub const BIG_HASH: u32 = 470819058;
 pub const LAYER_STACKS: usize = 8;

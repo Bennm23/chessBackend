@@ -3,13 +3,18 @@ use std::{
     io::{self, Read},
 };
 
+use aligned_vec::AVec;
 use pleco::Board;
 
 use crate::{
-    accumulator::{AccumulatorCache, AccumulatorStack}, constants::*, feature_sets::INPUT_DIM, nnue_utils::*, vectors::{
-        MAX_CHUNK_SIZE, Vec_T, vec_max_16, vec_min_16, vec_mulhi_16, vec_packus_16, vec_set1_16,
+    accumulator::{AccumulatorCache, AccumulatorStack},
+    constants::*,
+    feature_sets::INPUT_DIM,
+    nnue_utils::*,
+    vectors::{
+        MAX_CHUNK_SIZE, VecT, vec_max_16, vec_min_16, vec_mulhi_16, vec_packus_16, vec_set1_16,
         vec_slli_16, vec_zero,
-    }
+    },
 };
 
 type OutputType = u8;
@@ -23,9 +28,9 @@ type OutputType = u8;
 /// Some methods use unsafe code for pointer arithmetic and SIMD operations.
 /// # Description
 pub struct FeatureTransformer<const FEATURE_DIM: usize> {
-    pub biases: Vec<i16>,       // FEATURE_DIMENSIONS
-    pub weights: Vec<i16>,      // FEATURE_DIMENSIONS * INPUT_DIM
-    pub psqt_weights: Vec<i32>, // PSQT_BUCKETS * INPUT_DIM
+    pub biases: AVec<i16, VectorAlignment>,       // FEATURE_DIMENSIONS
+    pub weights: AVec<WeightType, VectorAlignment>,      // FEATURE_DIMENSIONS * INPUT_DIM
+    pub psqt_weights: AVec<PsqtWeightType, VectorAlignment>, // PSQT_BUCKETS * INPUT_DIM
 }
 
 impl<const DIM: usize> Debug for FeatureTransformer<DIM> {
@@ -66,9 +71,17 @@ impl<const FEATURE_DIM: usize> FeatureTransformer<FEATURE_DIM> {
                 "Feature Transformer hash header mismatch",
             ));
         }
-        let biases = read_leb128_i16(r, FEATURE_DIM)?;
-        let weights = read_leb128_i16(r, FEATURE_DIM * INPUT_DIM)?;
-        let psqt_weights = read_leb128_i32(r, PSQT_BUCKETS * INPUT_DIM)?;
+        let bias_vec = read_leb128_i16(r, FEATURE_DIM)?;
+        let weight_vec = read_leb128_i16(r, FEATURE_DIM * INPUT_DIM)?;
+        let psqt_weight_vec = read_leb128_i32(r, PSQT_BUCKETS * INPUT_DIM)?;
+
+        let mut biases = AVec::with_capacity(CACHE_ALIGN, FEATURE_DIM);
+        biases.extend_from_slice(&bias_vec);
+        let mut weights = AVec::with_capacity(CACHE_ALIGN, FEATURE_DIM * INPUT_DIM);
+        weights.extend_from_slice(&weight_vec);
+        let mut psqt_weights = AVec::with_capacity(CACHE_ALIGN, PSQT_BUCKETS * INPUT_DIM);
+        psqt_weights.extend_from_slice(&psqt_weight_vec);
+
         let mut ft = FeatureTransformer {
             biases,
             weights,
@@ -127,7 +140,7 @@ impl<const FEATURE_DIM: usize> FeatureTransformer<FEATURE_DIM> {
                 }
             }
         }
-        for b in &mut self.biases {
+        for b in self.biases.iter_mut() {
             if read {
                 *b *= 2;
             } else {
@@ -170,19 +183,19 @@ impl<const FEATURE_DIM: usize> FeatureTransformer<FEATURE_DIM> {
                 assert!((self.output_dims() / 2) % OUTPUT_CHUNK_SIZE == 0);
                 let num_output_chunks = self.output_dims() / 2 / OUTPUT_CHUNK_SIZE;
 
-                let zero: Vec_T = vec_zero();
-                let one: Vec_T = vec_set1_16(127 * 2);
+                let zero: VecT = vec_zero();
+                let one: VecT = vec_set1_16(127 * 2);
 
-                let in0: *const Vec_T = accum.accumulation[perspectives[player] as usize]
+                let in0: *const VecT = accum.accumulation[perspectives[player] as usize]
                     .as_ptr()
                     .cast();
-                let in1: *const Vec_T = unsafe {
+                let in1: *const VecT = unsafe {
                     accum.accumulation[perspectives[player] as usize]
                         .as_ptr()
                         .add(L1 / 2)
                         .cast()
                 };
-                let out_ptr: *mut Vec_T = unsafe { output.add(buff_offset).cast() };
+                let out_ptr: *mut VecT = unsafe { output.add(buff_offset).cast() };
 
                 const SHIFT: i32 = 7; // predifined shift as long as SSSE2 is supported
 
@@ -194,11 +207,11 @@ impl<const FEATURE_DIM: usize> FeatureTransformer<FEATURE_DIM> {
                 // Net effect: it computes output[offset + j] = clamp(sum0,0,254) * clamp(sum1,0,254) / 512 but does it MaxChunkSize elements at a time using SIMD,
                 //   which is why it iterates over NumOutputChunks rather than every index individually.
                 for j in 0..num_output_chunks {
-                    let sum0a: Vec_T = vec_slli_16::<SHIFT>(vec_max_16(
+                    let sum0a: VecT = vec_slli_16::<SHIFT>(vec_max_16(
                         vec_min_16(unsafe { *in0.add(j * 2 + 0) }, one),
                         zero,
                     ));
-                    let sum0b: Vec_T = vec_slli_16::<SHIFT>(vec_max_16(
+                    let sum0b: VecT = vec_slli_16::<SHIFT>(vec_max_16(
                         vec_min_16(unsafe { *in0.add(j * 2 + 1) }, one),
                         zero,
                     ));

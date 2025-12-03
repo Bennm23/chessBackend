@@ -258,6 +258,8 @@ mod tests {
         time::Instant,
     };
 
+    use pleco::{BitMove, SQ};
+
     use crate::feature_sets::INPUT_DIM;
 
     use super::*;
@@ -280,10 +282,6 @@ mod tests {
         let board = Board::start_pos();
         evaluator.reset(&board);
         let eval = evaluator.evaluate(&board);
-
-        println!("Turn to move: {:?}", board.turn());
-        println!("Eval: {}", eval.raw_fmt());
-
         assert!(eval.psqt == 0);
         assert!(eval.positional == 20);
         assert!(eval.scaled_total() == 20);
@@ -293,18 +291,11 @@ mod tests {
         let mut evaluator = NnueEvaluator::new();
         let board =
             Board::from_fen("rnbqkbnr/pppppppp/8/8/2P5/8/PP1PPPPP/RNBQKBNR b KQkq - 0 1").unwrap();
-        let start = Instant::now();
         evaluator.reset(&board);
         let eval = evaluator.evaluate(&board);
-
-        println!("Turn to move: {:?}", board.turn());
-        println!("Eval: {}", eval.raw_fmt());
-
         assert!(eval.psqt == 2);
         assert!(eval.positional == -52);
         assert!(eval.scaled_total() == -51);
-
-        println!("Eval took {} µs", start.elapsed().as_micros());
     }
     #[test]
     fn test_white_and_black_favored() {
@@ -323,84 +314,118 @@ mod tests {
     #[test]
     fn test_black_and_black_favored() {
         let mut evaluator = NnueEvaluator::new();
-
         let board =
             Board::from_fen("rq2kb1r/pppb1ppp/3ppn2/8/4PP2/2P5/PP1P2PP/RNB1KBNR b KQkq - 0 1")
                 .unwrap();
-        let start = Instant::now();
         evaluator.reset(&board);
         let eval = evaluator.evaluate(&board);
-
-        println!("Turn to move: {:?}", board.turn());
-        println!("Eval: {}", eval.raw_fmt());
-        println!("CP Eval: {}", eval.cp_fmt(&board));
-
         assert!(eval.psqt == 2050);
         assert!(eval.positional == 580);
         assert!(eval.scaled_total() == 2595);
-
-        println!("Eval took {} µs", start.elapsed().as_micros());
+    }
+    fn init_board_and_eval(fen: &str) -> (Board, NnueEvaluator) {
+        let mut evaluator = NnueEvaluator::new();
+        let board = Board::from_fen(fen).unwrap();
+        evaluator.reset(&board);
+        (board, evaluator)
     }
     #[test]
-    fn test_evaluate() {
-        let mut evaluator = NnueEvaluator::new();
+    fn test_quiet_move_sequence() {
+        let (mut board, mut evaluator) = init_board_and_eval(
+            "r1bqkb1r/ppp2ppp/2n1p3/3pPn2/3P4/2P2P2/PP1N2PP/R1BQKBNR b KQkq - 2 6"
+        );
 
-        let mut board =
-            Board::from_fen("rnbqkbnr/pppppppp/8/8/2P5/8/PP1PPPPP/RNBQKBNR b KQkq - 0 1").unwrap();
+        let start_eval = evaluator.trace_eval(&board);
 
-        evaluator.reset(&board); //Reset at start of search
+        let moves = vec![
+            BitMove::make_quiet(SQ::C8, SQ::D7),
+            BitMove::make_quiet(SQ::G1, SQ::E2),
+        ];
+        let move_len = moves.len();
 
-        let mut trace = evaluator.trace_eval(&board);
+        for mv in moves {
+            evaluator.do_move(&board, mv);
+            board.apply_move(mv);
+        }
 
-        // +-------------+-------------+-------------+-------------+
-        // |   Bucket    |  Material   | Positional  |    Total    |
-        // |             |   (PSQT)    |  (Layers)   |             |
-        // +-------------+-------------+-------------+-------------+
-        // |      0      |   + 0.07    |   + 2.77    |   + 2.83    |
-        // |      1      |   + 0.00    |   + 0.59    |   + 0.59    |
-        // |      2      |   + 0.02    |   + 0.13    |   + 0.14    |
-        // |      3      |   + 0.03    |   + 0.19    |   + 0.22    |
-        // |      4      |   + 0.02    |   + 0.03    |   + 0.06    |
-        // |      5      |   + 0.02    |   + 0.01    |   + 0.02    |
-        // |      6      |   + 0.01    |   - 0.04    |   - 0.03    |
-        // |      7      |   + 0.01    |   - 0.14    |   - 0.13    | <-- selected
-        // +-------------+-------------+-------------+-------------+
+        for _ in 0 .. move_len {
+            evaluator.undo_move();
+            board.undo_move();
+        }
 
-        trace.print(&board);
+        let end_eval = evaluator.trace_eval(&board);
+        // Assert eval is the same when applying quiet moves
+        for i in 0 .. PSQT_BUCKETS {
+            assert_eq!(start_eval.psqt[i], end_eval.psqt[i]);
+            assert_eq!(start_eval.positional[i], end_eval.positional[i]);
+        }
+    }
 
-        let mv = *board.generate_moves().get(0).unwrap();
-        let start = Instant::now();
-        // println!("Applying move: {}", mv);
-        evaluator.do_move(&board, mv);
-        board.apply_move(mv);
+    #[test]
+    fn test_promo() {
+        let (mut board, mut evaluator) = init_board_and_eval(
+            "8/4P3/2bk1K2/8/1PB5/8/8/8 w - - 1 60" // White about to promo
+        );
 
-        trace = evaluator.trace_eval(&board);
-        trace.print(&board);
+        let start_eval = evaluator.trace_eval(&board);
 
-        evaluator.undo_move();
-        board.undo_move();
+        start_eval.print(&board);
 
-        trace = evaluator.trace_eval(&board);
-        trace.print(&board);
+        let moves = vec![
+            BitMove::make(BitMove::FLAG_PROMO_Q, SQ::E7, SQ::E8),
+        ];
+        let move_len = moves.len();
 
-        let mv = *board.generate_moves().get(0).unwrap();
-        let start = Instant::now();
-        // println!("Applying move: {}", mv);
-        evaluator.do_move(&board, mv);
-        board.apply_move(mv);
+        for mv in moves {
+            evaluator.do_move(&board, mv);
+            board.apply_move(mv);
+        }
 
-        trace = evaluator.trace_eval(&board);
-        trace.print(&board);
+        for _ in 0 .. move_len {
+            evaluator.undo_move();
+            board.undo_move();
+        }
 
-        evaluator.undo_move();
-        board.undo_move();
+        let end_eval = evaluator.trace_eval(&board);
+        // Assert eval is the same when applying promo moves
+        for i in 0 .. PSQT_BUCKETS {
+            assert_eq!(start_eval.psqt[i], end_eval.psqt[i]);
+            assert_eq!(start_eval.positional[i], end_eval.positional[i]);
+        }
+    }
+    #[test]
+    fn check_null_move() {
+        let (mut board, mut evaluator) = init_board_and_eval(
+            "8/4P3/2bk1K2/8/1PB5/8/8/8 w - - 1 60" // White about to promo
+        );
 
-        trace = evaluator.trace_eval(&board);
-        trace.print(&board);
+        let start_eval = evaluator.trace_eval(&board);
 
-        //30-50 us move -> undo
-        //20 us just eval
-        println!("Full Trace took {} µs", start.elapsed().as_micros());
+        unsafe {
+            board.apply_null_move();
+        }
+
+        let flipped_eval = evaluator.trace_eval(&board);
+
+        unsafe {
+            board.undo_null_move();
+        }
+
+        let end_eval = evaluator.trace_eval(&board);
+
+        // Eval for black should be same as null move eval
+        let (board, mut eval) = init_board_and_eval(
+            "8/4P3/2bk1K2/8/1PB5/8/8/8 b - - 1 60"
+        );
+        let blacks_eval = eval.trace_eval(&board);
+
+        // Assert eval is the same when applying promo moves
+        for i in 0 .. PSQT_BUCKETS {
+            assert_eq!(start_eval.psqt[i], end_eval.psqt[i]);
+            assert_eq!(start_eval.positional[i], end_eval.positional[i]);
+            assert_eq!(flipped_eval.psqt[i], blacks_eval.psqt[i]);
+            assert_eq!(flipped_eval.positional[i], blacks_eval.positional[i]);
+        }
     }
 
     #[test]

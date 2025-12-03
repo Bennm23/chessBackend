@@ -1,19 +1,16 @@
 use core::panic;
 use std::array::from_fn;
 
+use aligned_vec::AVec;
 use pleco::{BitBoard, Board, Piece, Player};
 
 use crate::{
     constants::{
-        COLOR_OPS, COLORS, MAX_PLY, PAWN_THROUGH_KING, PIECE_TYPE_NB, PSQT_BUCKETS, SQUARES,
-        TRANSFORMED_FEATURE_DIM_BIG,
-    },
-    feature_transformer::FeatureTransformer,
-    feature_sets::{
+        COLOR_OPS, COLORS, MAX_PLY, PAWN_THROUGH_KING, PIECE_TYPE_NB, PSQT_BUCKETS, PsqtWeightType, SQUARES, TRANSFORMED_FEATURE_DIM_BIG, USE_AVX2, VectorAlignment, WeightType
+    }, feature_sets::{
         self, IndexList, MAX_ACTIVE_DIMENSIONS, append_changed_indices, requires_refresh,
-    },
-    nnue,
-    nnue_misc::DirtyPiece,
+    }, feature_transformer::FeatureTransformer, nnue, nnue_misc::DirtyPiece, vectors::{NUM_PSQT_REGS, NUM_REGS_BIG, PSQT_TILE_HEIGHT, PsqtVecT, TILE_HEIGHT_BIG, VecT, 
+        to_const_vec_ptr, to_mut_vec_ptr, vec_add_16, vec_add_32, vec_store_si256, vec_sub_16, vec_sub_32, vec_zero}
 };
 
 /// NNUE per-color accumulator holding the fully materialized feature sums.
@@ -138,30 +135,250 @@ fn update_accumulator_refresh_cache<const DIM: usize>(
     }
     accum.computed[perspective as usize] = true;
 
-    // TODO: Vector Ops ?
+    if USE_AVX2 {
 
-    for index in &removed_features {
-        let offset = DIM * index;
-        for j in 0..DIM {
-            cache_entry.accumulation[j] -= ft.weights[offset + j];
-        }
-        for k in 0..PSQT_BUCKETS {
-            cache_entry.psqt_accum[k] -= ft.psqt_weights[index * PSQT_BUCKETS + k];
-        }
-    }
-    for index in &added_features {
-        let offset = DIM * index;
-        for j in 0..DIM {
-            cache_entry.accumulation[j] += ft.weights[offset + j];
-        }
-        for k in 0..PSQT_BUCKETS {
-            cache_entry.psqt_accum[k] += ft.psqt_weights[index * PSQT_BUCKETS + k];
-        }
-    }
+        let combine_last_3 = (removed_features.len() as i32 - added_features.len() as i32).abs() == 1 &&
+            (removed_features.len() + added_features.len()) > 2;
 
-    // Cache Entry Accum is updated, copy to Accumulator
-    accum.accumulation[perspective as usize].copy_from_slice(&cache_entry.accumulation);
-    accum.psqt_accum[perspective as usize].copy_from_slice(&cache_entry.psqt_accum);
+        let num_regs = NUM_REGS_BIG;
+        let tile_height = TILE_HEIGHT_BIG;
+
+        // Just going to use big dim automatically, no idea how to make it dynamic for consts
+        let mut acc: [VecT; NUM_REGS_BIG] = [vec_zero(); NUM_REGS_BIG]; 
+        let mut psqt: [PsqtVecT; NUM_PSQT_REGS] = [vec_zero(); NUM_PSQT_REGS];
+
+        for j in 0 .. DIM / tile_height {
+
+            let acc_tile: *mut VecT = unsafe {
+                accum
+                    .accumulation[perspective as usize]
+                    .as_mut_ptr()
+                    .add(j * tile_height)
+                    .cast()
+            };
+
+            // let entry_tile: *mut VecT = to_mut_vec_ptr(
+            //     &mut cache_entry.accumulation, 
+            //     j * tile_height
+            // );
+            let entry_tile: *mut VecT = unsafe {
+                cache_entry
+                    .accumulation
+                    .as_mut_ptr()
+                    .add(j * tile_height)
+                    .cast()
+            };
+
+            // Store off accumulation
+            for k in 0 .. num_regs {
+                acc[k] = unsafe { *entry_tile.add(k) };
+            }
+
+            let mut i: usize = 0;
+            while i < removed_features.len().min(added_features.len()) - combine_last_3 as usize {
+                
+                let index_r = removed_features[i];
+                let offset_r = DIM * index_r + j * tile_height;
+                let column_r: *const VecT = unsafe {
+                    ft.weights
+                        .as_ptr()
+                        .add(offset_r)
+                        .cast()
+                };
+                let index_a = added_features[i];
+                let offset_a = DIM * index_a + j * tile_height;
+                let column_a: *const VecT = unsafe {
+                    ft.weights
+                        .as_ptr()
+                        .add(offset_a)
+                        .cast()
+                };
+
+                for k in 0 .. num_regs {
+                    acc[k] = vec_add_16(
+                        acc[k],
+                        unsafe {
+                            vec_sub_16(
+                                *column_a.add(k),
+                                *column_r.add(k)
+                            )
+                        }
+                    );
+                }
+                i += 1;
+            }
+
+            if combine_last_3 {
+                let index_r = removed_features[i];
+                let offset_r = DIM * index_r + j * tile_height;
+                let column_r: *const VecT = to_const_vec_ptr(&ft.weights, offset_r);
+                // let column_r: *const VecT = unsafe {
+                //     ft.weights
+                //         .as_ptr()
+                //         .add(offset_r)
+                //         .cast()
+                // };
+                let index_a = added_features[i];
+                let offset_a = DIM * index_a + j * tile_height;
+                let column_a: *const VecT = to_const_vec_ptr(&ft.weights, offset_a);
+                // let column_a: *const VecT = unsafe {
+                //     ft.weights
+                //         .as_ptr()
+                //         .add(offset_a)
+                //         .cast()
+                // };
+
+                if removed_features.len() > added_features.len() {
+                    let index_r2 = removed_features[i + 1];
+                    let offset_r2 = DIM * index_r2 + j * tile_height;
+                    let column_r2: *const VecT = to_const_vec_ptr(&ft.weights, offset_r2);
+                    // let column_r2: *const VecT = unsafe {
+                    //     ft.weights
+                    //         .as_ptr()
+                    //         .add(offset_r2)
+                    //         .cast()
+                    // };
+
+                    for k in 0 .. num_regs {
+                        acc[k] = vec_sub_16(
+                            vec_add_16(acc[k], unsafe { *column_a.add(k) }), 
+                            vec_add_16(unsafe { *column_r.add(k) }, unsafe { *column_r2.add(k) })
+                        )
+                    }
+                } else {
+                    let index_a2 = added_features[i + 1];
+                    let offset_a2 = DIM * index_a2 + j * tile_height;
+                    let column_a2: *const VecT = to_const_vec_ptr(&ft.weights, offset_a2);
+                    // let column_a2: *const VecT = unsafe {
+                    //     ft.weights
+                    //         .as_ptr()
+                    //         .add(offset_a2)
+                    //         .cast()
+                    // };
+
+                    for k in 0 .. num_regs {
+                        acc[k] = vec_add_16(
+                            vec_sub_16(acc[k], unsafe { *column_r.add(k) }), 
+                            vec_add_16(unsafe { *column_a.add(k) }, unsafe { *column_a2.add(k) })
+                        )
+                    }
+                }
+            } else {
+                while i < removed_features.len() {
+                    let index = removed_features[i];
+                    let offset = DIM * index + j * tile_height;
+                    let column: *const VecT = to_const_vec_ptr(&ft.weights, offset);
+
+                    for k in 0 .. num_regs {
+                        acc[k] = vec_sub_16(
+                            acc[k],
+                            unsafe { *column.add(k) }
+                        );
+                    }
+                    i += 1;
+                }
+                while i < added_features.len() {
+                    let index = added_features[i];
+                    let offset = DIM * index + j * tile_height;
+                    let column: *const VecT = to_const_vec_ptr(&ft.weights, offset);
+
+                    for k in 0 .. num_regs {
+                        acc[k] = vec_add_16(
+                            acc[k],
+                            unsafe { *column.add(k) }
+                        );
+                    }
+                    i += 1;
+                }
+            }
+
+            // Write out values
+            for k in 0 .. num_regs {
+                vec_store_si256(unsafe { entry_tile.add(k) }, acc[k]);
+            }
+            for k in 0 .. num_regs {
+                vec_store_si256(unsafe { acc_tile.add(k) }, acc[k]);
+            }
+
+        }
+
+        // PSQT Update
+        for j in 0 .. PSQT_BUCKETS / PSQT_TILE_HEIGHT {
+            let acc_tile_psqt: *mut VecT = to_mut_vec_ptr(
+                &mut accum.psqt_accum[perspective as usize], 
+                j * PSQT_TILE_HEIGHT
+            );
+
+            let entry_tile_psqt: *mut VecT = to_mut_vec_ptr(
+                &mut cache_entry.psqt_accum, 
+                j * PSQT_TILE_HEIGHT
+            );
+
+            for k in 0 .. NUM_PSQT_REGS {
+                psqt[k] = unsafe { *entry_tile_psqt.add(k) };
+            }
+
+            for i in 0 .. removed_features.len() {
+                let index = removed_features[i];
+                let offset = PSQT_BUCKETS * index + j * PSQT_TILE_HEIGHT;
+                let column_psqt: *const PsqtVecT = to_const_vec_ptr(&ft.psqt_weights, offset);
+
+                for k in 0 .. NUM_PSQT_REGS {
+                    psqt[k] = vec_sub_32(
+                        psqt[k],
+                        unsafe { *column_psqt.add(k) }
+                    );
+                }
+            }
+
+            for i in 0 .. added_features.len() {
+                let index = added_features[i];
+                let offset = PSQT_BUCKETS * index + j * PSQT_TILE_HEIGHT;
+                let column_psqt: *const PsqtVecT = to_const_vec_ptr(&ft.psqt_weights, offset);
+
+                for k in 0 .. NUM_PSQT_REGS {
+                    psqt[k] = vec_add_32(
+                        psqt[k],
+                        unsafe { *column_psqt.add(k) }
+                    );
+                }
+            }
+
+            // Write out values
+            for k in 0 .. NUM_PSQT_REGS {
+                vec_store_si256(unsafe { entry_tile_psqt.add(k) }, psqt[k]);
+            }
+            for k in 0 .. NUM_PSQT_REGS {
+                vec_store_si256(unsafe { acc_tile_psqt.add(k) }, psqt[k]);
+            }
+        }
+
+    } else {
+
+        // Normal
+        for index in &removed_features {
+            let offset = DIM * index;
+            for j in 0..DIM {
+                cache_entry.accumulation[j] -= ft.weights[offset + j];
+            }
+            for k in 0..PSQT_BUCKETS {
+                cache_entry.psqt_accum[k] -= ft.psqt_weights[index * PSQT_BUCKETS + k];
+            }
+        }
+        for index in &added_features {
+            let offset = DIM * index;
+            for j in 0..DIM {
+                cache_entry.accumulation[j] += ft.weights[offset + j];
+            }
+            for k in 0..PSQT_BUCKETS {
+                cache_entry.psqt_accum[k] += ft.psqt_weights[index * PSQT_BUCKETS + k];
+            }
+        }
+
+        // Cache Entry Accum is updated, copy to Accumulator
+        accum.accumulation[perspective as usize].copy_from_slice(&cache_entry.accumulation);
+        accum.psqt_accum[perspective as usize].copy_from_slice(&cache_entry.psqt_accum);
+    }
 
     // End vector ops block
 
@@ -245,34 +462,207 @@ fn update_accumulator_incremental<const DIM: usize>(
             assert!(removed.len() <= added.len())
         }
 
-        //TODO: Vector Ops ?
-        // Start from current accumulator
-        target_accum.accumulation[perspective as usize]
-            .copy_from_slice(&current_accum.accumulation[perspective as usize]);
-        target_accum.psqt_accum[perspective as usize]
-            .copy_from_slice(&current_accum.psqt_accum[perspective as usize]);
+        if USE_AVX2 {
 
-        for index in removed {
-            let offset = DIM * index;
-            for i in 0..DIM {
-                target_accum.accumulation[perspective as usize][i] -= 
-                    ft.weights[offset + i];
-            }
-            for i in 0..PSQT_BUCKETS {
-                target_accum.psqt_accum[perspective as usize][i] -=
-                    ft.psqt_weights[index * PSQT_BUCKETS + i];
-            }
-        }
+            let acc_in: *const VecT = to_const_vec_ptr(
+                &current_accum.accumulation[perspective as usize], 
+                0
+            );
+            let acc_out: *mut VecT = to_mut_vec_ptr(
+                &mut target_accum.accumulation[perspective as usize], 
+                0
+            );
 
-        for index in added {
-            let offset = DIM * index;
-            for i in 0..DIM {
-                target_accum.accumulation[perspective as usize][i] +=
-                    ft.weights[offset + i];
+            let offset_a0 = DIM * added[0];;
+            let column_a0: *const VecT = to_const_vec_ptr(&ft.weights, offset_a0);
+            let offset_r0 = DIM * removed[0];;
+            let column_r0: *const VecT = to_const_vec_ptr(&ft.weights, offset_r0);
+
+            if (direction == Direction::Forward && removed.len() == 1) ||
+                (direction == Direction::Backward && added.len() == 1) {
+                    assert!(added.len() == 1 && removed.len() == 1);
+                    for i in 0 .. DIM * size_of::<WeightType>() / size_of::<VecT>() {
+
+                        unsafe {
+                            acc_out.add(i).write(
+                                vec_add_16(
+                                    vec_sub_16(*acc_in.add(i), *column_r0.add(i)), 
+                                    *column_a0.add(i)
+                                )
+                            );
+                        }
+
+                    }
+            } else if direction == Direction::Forward && added.len() == 1 {
+                assert!(removed.len() == 2);
+                let offset_r1 = DIM * removed[1];
+                let column_r1: *const VecT = to_const_vec_ptr(&ft.weights, offset_r1);
+
+                for i in 0 .. DIM * size_of::<WeightType>() / size_of::<VecT>() {
+
+                    unsafe {
+                        acc_out.add(i).write(
+                            vec_sub_16(
+                                vec_add_16(*acc_in.add(i), *column_a0.add(i)), 
+                                vec_add_16(*column_r0.add(i), *column_r1.add(i))
+                            )
+                        );
+                    }
+
+                }
+            } else if direction == Direction::Backward && removed.len() == 1 {
+                assert!(added.len() == 2);
+                let offset_a1 = DIM * added[1];
+                let column_a1: *const VecT = to_const_vec_ptr(&ft.weights, offset_a1);
+
+                for i in 0 .. DIM * size_of::<WeightType>() / size_of::<VecT>() {
+
+                    unsafe {
+                        acc_out.add(i).write(
+                            vec_add_16(
+                                vec_add_16(*acc_in.add(i), *column_a0.add(i)), 
+                                vec_sub_16(*column_a1.add(i), *column_r0.add(i))
+                            )
+                        );
+                    }
+
+                }
+            } else {
+                assert!(added.len() == 2 && removed.len() == 2);
+                let offset_a1 = DIM * added[1];
+                let column_a1: *const VecT = to_const_vec_ptr(&ft.weights, offset_a1);
+                let offset_r1 = DIM * removed[1];
+                let column_r1: *const VecT = to_const_vec_ptr(&ft.weights, offset_r1);
+
+                for i in 0 .. DIM * size_of::<WeightType>() / size_of::<VecT>() {
+
+                    unsafe {
+                        acc_out.add(i).write(
+                            vec_add_16(
+                                *acc_in.add(i), 
+                                vec_sub_16(
+                                    vec_add_16(*column_a0.add(i), *column_a1.add(i)), 
+                                    vec_add_16(*column_r0.add(i), *column_r1.add(i))
+                                )
+                            )
+                        );
+                    }
+                }
             }
-            for i in 0..PSQT_BUCKETS {
-                target_accum.psqt_accum[perspective as usize][i] +=
-                    ft.psqt_weights[index * PSQT_BUCKETS + i];
+
+            // PSQT Update
+            let acc_psqt_in: *const PsqtVecT = to_const_vec_ptr(
+                &current_accum.psqt_accum[perspective as usize], 
+                0
+            );
+            let acc_psqt_out: *mut PsqtVecT = to_mut_vec_ptr(
+                &mut target_accum.psqt_accum[perspective as usize], 
+                0
+            );
+
+            let offset_psqt_a0 = PSQT_BUCKETS * added[0];
+            let column_psqt_a0: *const PsqtVecT = to_const_vec_ptr(&ft.psqt_weights, offset_psqt_a0);
+            let offset_psqt_r0 = PSQT_BUCKETS * removed[0];
+            let column_psqt_r0: *const PsqtVecT = to_const_vec_ptr(&ft.psqt_weights, offset_psqt_r0);
+
+            if (direction == Direction::Forward && removed.len() == 1) ||
+                (direction == Direction::Backward && added.len() == 1) {
+                
+                for i in 0 .. PSQT_BUCKETS * size_of::<PsqtWeightType>() / size_of::<PsqtVecT>() {
+
+                    unsafe {
+                        acc_psqt_out.add(i).write(
+                            vec_add_32(
+                                vec_sub_32(*acc_psqt_in.add(i), *column_psqt_r0.add(i)), 
+                                *column_psqt_a0.add(i)
+                            )
+                        );
+                    }
+
+                }
+            } else if direction == Direction::Forward && added.len() == 1 {
+                let offset_psqrt_r1 = PSQT_BUCKETS * removed[1];
+                let column_psqt_r1: *const PsqtVecT = to_const_vec_ptr(&ft.psqt_weights, offset_psqrt_r1);
+                for i in 0 .. PSQT_BUCKETS * size_of::<PsqtWeightType>() / size_of::<PsqtVecT>() {
+
+                    unsafe {
+                        acc_psqt_out.add(i).write(
+                            vec_sub_32(
+                                vec_add_32(*acc_psqt_in.add(i), *column_psqt_a0.add(i)), 
+                                vec_add_32(*column_psqt_r0.add(i), *column_psqt_r1.add(i))
+                            )
+                        );
+                    }
+
+                }
+
+            } else if direction == Direction::Backward && removed.len() == 1 {
+                
+                let offset_psqt_a1 = PSQT_BUCKETS * added[1];
+                let column_psqt_a1: *const PsqtVecT = to_const_vec_ptr(&ft.psqt_weights, offset_psqt_a1);
+                for i in 0 .. PSQT_BUCKETS * size_of::<PsqtWeightType>() / size_of::<PsqtVecT>() {
+
+                    unsafe {
+                        acc_psqt_out.add(i).write(
+                            vec_add_32(
+                                vec_add_32(*acc_psqt_in.add(i), *column_psqt_a0.add(i)), 
+                                vec_sub_32(*column_psqt_a1.add(i), *column_psqt_r0.add(i))
+                            )
+                        );
+                    }
+
+                }
+            } else {
+                let offset_psqt_a1 = PSQT_BUCKETS * added[1];
+                let column_psqt_a1: *const PsqtVecT = to_const_vec_ptr(&ft.psqt_weights, offset_psqt_a1);
+                let offset_psqt_r1 = PSQT_BUCKETS * removed[1];
+                let column_psqt_r1: *const PsqtVecT = to_const_vec_ptr(&ft.psqt_weights, offset_psqt_r1);
+                for i in 0 .. PSQT_BUCKETS * size_of::<PsqtWeightType>() / size_of::<PsqtVecT>() {
+
+                    unsafe {
+                        acc_psqt_out.add(i).write(
+                            vec_add_32(
+                                *acc_psqt_in.add(i), 
+                                vec_sub_32(
+                                    vec_add_32(*column_psqt_a0.add(i), *column_psqt_a1.add(i)), 
+                                    vec_add_32(*column_psqt_r0.add(i), *column_psqt_r1.add(i))
+                                )
+                            )
+                        );
+                    }
+
+                }
+            } 
+
+        } else {
+            // Start from current accumulator
+            target_accum.accumulation[perspective as usize]
+                .copy_from_slice(&current_accum.accumulation[perspective as usize]);
+            target_accum.psqt_accum[perspective as usize]
+                .copy_from_slice(&current_accum.psqt_accum[perspective as usize]);
+
+            for index in removed {
+                let offset = DIM * index;
+                for i in 0..DIM {
+                    target_accum.accumulation[perspective as usize][i] -= 
+                        ft.weights[offset + i];
+                }
+                for i in 0..PSQT_BUCKETS {
+                    target_accum.psqt_accum[perspective as usize][i] -=
+                        ft.psqt_weights[index * PSQT_BUCKETS + i];
+                }
+            }
+
+            for index in added {
+                let offset = DIM * index;
+                for i in 0..DIM {
+                    target_accum.accumulation[perspective as usize][i] +=
+                        ft.weights[offset + i];
+                }
+                for i in 0..PSQT_BUCKETS {
+                    target_accum.psqt_accum[perspective as usize][i] +=
+                        ft.psqt_weights[index * PSQT_BUCKETS + i];
+                }
             }
         }
     }
@@ -443,7 +833,7 @@ pub struct AccumulatorCaches {
     // pub small: AccumulatorCache<TRANSFORMED_FEATURE_DIM_SMALL>,
 }
 impl AccumulatorCaches {
-    pub fn new(biases: &Vec<i16>) -> Self {
+    pub fn new(biases: &AVec<i16, VectorAlignment>) -> Self {
         let mut big = AccumulatorCache::new();
         big.clear_with_biases(biases);
         Self {
@@ -469,7 +859,7 @@ pub struct CacheEntry<const DIM: usize> {
 }
 
 impl<const DIM: usize> CacheEntry<DIM> {
-    pub fn clear(&mut self, biases: &Vec<i16>) {
+    pub fn clear(&mut self, biases: &AVec<i16, VectorAlignment>) {
         assert!(biases.len() == DIM);
         self.accumulation.copy_from_slice(biases);
         self.psqt_accum = [0; PSQT_BUCKETS];
@@ -492,7 +882,7 @@ impl<const DIM: usize> AccumulatorCache<DIM> {
         }
     }
 
-    pub fn clear_with_biases(&mut self, biases: &Vec<i16>) {
+    pub fn clear_with_biases(&mut self, biases: &AVec<i16, VectorAlignment>) {
         assert!(biases.len() == DIM);
         for sq in 0..SQUARES {
             for c in 0..COLORS {

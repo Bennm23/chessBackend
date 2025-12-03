@@ -1,6 +1,12 @@
-use std::{fmt::Display, io::{self, Read}, ops::{Deref, DerefMut}};
+use std::{
+    fmt::Display,
+    io::{self, Read},
+    ops::{Deref, DerefMut},
+};
 
 use pleco::{Board, PieceType, Player};
+
+use crate::{constants::WeightType, vectors::VecT};
 
 #[repr(align(64))]
 pub struct CacheAligned<T>(pub T);
@@ -16,7 +22,6 @@ impl<T> DerefMut for CacheAligned<T> {
         &mut self.0
     }
 }
-
 
 // --- LEB128 signed ---
 pub fn read_leb128_i16(r: &mut impl Read, n: usize) -> io::Result<Vec<i16>> {
@@ -120,7 +125,6 @@ pub fn read_i8_vec(r: &mut impl Read, n: usize) -> io::Result<Vec<i8>> {
     Ok(v)
 }
 
-
 pub fn get_first_and_last<T: Display>(data: &[T]) -> String {
     let mut output = String::new();
     if data.len() <= 10 {
@@ -131,7 +135,7 @@ pub fn get_first_and_last<T: Display>(data: &[T]) -> String {
         for (i, v) in data[..10].iter().enumerate() {
             output.push_str(&format!("    {}:{}\n", i, v));
         }
-        for (i, v) in data[data.len()-10..].iter().enumerate() {
+        for (i, v) in data[data.len() - 10..].iter().enumerate() {
             output.push_str(&format!("    {}:{}\n", i + data.len() - 10, v));
         }
     }
@@ -140,14 +144,10 @@ pub fn get_first_and_last<T: Display>(data: &[T]) -> String {
 }
 
 pub const fn ceil_to_multiple(x: usize, m: usize) -> usize {
-    if x % m == 0 {
-        x
-    } else {
-        x + (m - (x % m))
-    }
+    if x % m == 0 { x } else { x + (m - (x % m)) }
 }
 
-pub fn win_rate_params(board : &Board) -> (f32, f32) {
+pub fn win_rate_params(board: &Board) -> (f32, f32) {
 
     let material = 
         board.count_piece(Player::White, PieceType::P) as i32 + board.count_piece(Player::Black, PieceType::P) as i32 +
@@ -158,7 +158,7 @@ pub fn win_rate_params(board : &Board) -> (f32, f32) {
 
     // The fitted model only uses data for material counts in [17, 78], and is anchored at count 58.
     let m = material.clamp(17, 78) as f32 / 58.0;
-    
+
     // Return a = p_a(material) and b = p_b(material), see github.com/official-stockfish/WDL_model
     let ass = [-13.50030198, 40.92780883, -36.82753545, 386.83004070];
     let bs = [96.53354896, -165.79058388, 90.89679019, 49.29561889];
@@ -169,15 +169,13 @@ pub fn win_rate_params(board : &Board) -> (f32, f32) {
     return (a, b);
 }
 
-
-pub fn to_cp(v: i32, board : &Board) -> f32 {
-    let (a, b) = win_rate_params(board);
-    (100f32 * v as f32 / a).round() 
+pub fn to_cp(v: i32, board: &Board) -> f32 {
+    let (a, _b) = win_rate_params(board);
+    (100f32 * v as f32 / a).round()
 }
 
 pub fn format_cp_aligned_dot(v: i32, board: &Board) -> String {
-
     let pawns = (0.01 * to_cp(v, board)).abs();
-    
-    format!("{} {:.2}", if v < 0 {"-"} else {"+"}, pawns)
+
+    format!("{} {:.2}", if v < 0 { "-" } else { "+" }, pawns)
 }

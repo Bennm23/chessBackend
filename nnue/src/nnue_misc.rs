@@ -2,6 +2,7 @@ use pleco::{Board, Piece, PieceType, Player, SQ};
 
 use crate::{constants::LAYER_STACKS, nnue_utils::{format_cp_aligned_dot, to_cp}};
 
+#[derive(Clone)]
 pub struct EvalTrace {
     pub selected_bucket: usize,
     pub side_to_move: Player,

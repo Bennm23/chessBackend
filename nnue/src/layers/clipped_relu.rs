@@ -2,7 +2,7 @@ use crate::{
     constants::{USE_AVX2, WEIGHT_SCALE_BITS},
     nnue_utils::CacheAligned,
     vectors::{
-        Vec_T, Vec128T, mm_packs_epi16, mm_packus_epi32,
+        VecT, Vec128T, mm_packs_epi16, mm_packus_epi32,
         mm_srli_epi16, mm_store_si128, vec_load_si256, vec_packs_epi16, vec_packus_32,
         vec_permutevar8x32_epi32, vec_set_32, vec_srli_epi16, vec_store_si256, mm_load_si128,
     },
@@ -31,8 +31,8 @@ impl<const INPUT_DIM: usize, const PADDED_OUT_DIM: usize> ClippedReLU<INPUT_DIM,
                 let chunks = INPUT_DIM / crate::vectors::SIMD_WIDTH;
                 let offsets = vec_set_32(7, 3, 6, 2, 5, 1, 4, 0);
 
-                let in_vec: *const Vec_T = input as *const Vec_T;
-                let out_vec: *mut Vec_T = output as *mut Vec_T;
+                let in_vec: *const VecT = input as *const VecT;
+                let out_vec: *mut VecT = output as *mut VecT;
 
                 for i in 0..chunks {
                     let words0 = vec_srli_epi16::<{ WEIGHT_SCALE_BITS as i32 }>(vec_packus_32(

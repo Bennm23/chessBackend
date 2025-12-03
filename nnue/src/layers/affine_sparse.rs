@@ -8,7 +8,7 @@ use crate::{
     constants::{L1, L2, MAX_SIMD_WIDTH, USE_AVX2, USE_SSSE3},
     nnue_utils::read_i32_vec,
     vectors::{
-        MAX_CHUNK_SIZE, Vec_T, Vec128T, mm_add_epi16, mm_load_si128, mm_set1_epi16,
+        MAX_CHUNK_SIZE, VecT, Vec128T, mm_add_epi16, mm_load_si128, mm_set1_epi16,
         mm_setzero_si128, mm_storeu_si128, vec_add_dpbusd_epi32, vec_nnz, vec_set1_32, vec_zero,
     },
 };
@@ -126,13 +126,13 @@ fn find_nnz<const NNZ_IN_DIMS: usize>(
     count_out: &mut u32,
 ) {
     const INPUT_SIMD_WIDTH: usize =
-        std::mem::size_of::<Vec_T>() / std::mem::size_of::<OutputType>();
+        std::mem::size_of::<VecT>() / std::mem::size_of::<OutputType>();
     const CHUNK_SIZE: usize = 8;
     let num_chunks: usize = NNZ_IN_DIMS / CHUNK_SIZE;
     const INPUTS_PER_CHUNK: usize = CHUNK_SIZE / INPUT_SIMD_WIDTH;
     const OUTPUTS_PER_CHUNK: usize = CHUNK_SIZE / 8;
 
-    let input_vector: *const Vec_T = input as *const Vec_T;
+    let input_vector: *const VecT = input as *const VecT;
 
     let mut count = 0;
     let mut base = mm_setzero_si128();
@@ -210,7 +210,7 @@ impl AffineTransformSparse {
             // Find indices of nonzero 32-bit blocks
             find_nnz(input32, &mut nnz, &mut count);
 
-            let bias_vector: *const Vec_T = self.biases.as_ptr() as *const Vec_T;
+            let bias_vector: *const VecT = self.biases.as_ptr() as *const VecT;
 
             let mut acc = [vec_zero(); NUM_REGS];
 
@@ -221,9 +221,9 @@ impl AffineTransformSparse {
             for j in 0..count as usize {
                 let i = nnz[j];
                 let in_vec = vec_set1_32(unsafe { *input32.add(i as usize) });
-                let col: *const Vec_T = unsafe {
+                let col: *const VecT = unsafe {
                     self.weights.as_ptr().add(i as usize * OUTPUT_DIMENSIONS * CHUNK_SIZE)
-                        as *const Vec_T
+                        as *const VecT
                 };
 
                 for k in 0..NUM_REGS {
@@ -231,7 +231,7 @@ impl AffineTransformSparse {
                 }
             }
 
-            let outptr: *mut Vec_T = output as *mut Vec_T;
+            let outptr: *mut VecT = output as *mut VecT;
             for k in 0..NUM_REGS {
                 unsafe {
                     *outptr.add(k) = acc[k];

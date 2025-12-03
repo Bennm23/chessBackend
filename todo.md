@@ -1,89 +1,39 @@
 # Work to Do
+
 - implement layer sizes with traits?
 - cleanup nnue and add docs
 - implement layer sizes with traits?
 - cleanup nnue and add docs
 - nnue evaluation
 - fmt files
+- shuffled into draw when leading <https://www.chess.com/analysis/game/computer/479315123/analysis?move=84>
+- failed to avoid draw when leading <https://www.chess.com/analysis/game/computer/479322881/analysis?move=70>
+- weird promo to knight <https://www.chess.com/analysis/game/computer/479344011/analysis?move=117>
+- Blundered mate 1k1rr3/pp3p1Q/5q2/P7/4n1B1/1P1p3P/3P1PP1/1R3K1R w - - 2 25
+    <https://www.chess.com/analysis/game/computer/461571475/review?move=47&move=47&tab=review&classification=greatfind&autorun=true>
+- bench nnue eval
 
-- go through this and clean up 
-- check warnings/ remove prints finalize
-- put test ops behind a config flag or something
+- put test ops behind a config flag or something *MOVE IT TO BIN*
 - avoid draw in this position 3Q4/8/6p1/1p3qk1/p3p3/P5P1/6P1/6KR b - - 11 50
 
-
-
-- finalize display and commit
-- move engine to its own crate
-    - test benchmarks/tests
-- debug positions and expected moves
-- after refinement, parallelize?
-- Blundered mate 1k1rr3/pp3p1Q/5q2/P7/4n1B1/1P1p3P/3P1PP1/1R3K1R w - - 2 25
-    https://www.chess.com/analysis/game/computer/461571475/review?move=47&move=47&tab=review&classification=greatfind&autorun=true
-- should i modify the search to return eval? Then send eval with best move to frontend?
-- white to move, blunders c2c4 2rq1rk1/4pp2/p1n4p/1pPN1b2/3P2p1/P7/1PP1BPPP/R2QK2R w KQ - 1 20
-- white to move, blunders f2f4 leading to draw 8/5p1k/6pp/4q3/P3P3/6P1/2Q2P2/6K1 w - - 1 37
+- add dev display for frontend. Add customizable game settings mod
+- test/bench
+- parallelize?
 - PGO optimization for compilation
-- blunders b4b2 leading to M8 when advantage 2kr3r/p4p2/3Bb2p/nPp3p1/1q6/P2Q1P2/6PP/2R1R2K b - - 0 29
 
 - delete pleco eval, cleanup everything. Run new engine versus those old scenarios
 
 ## Move Optimization
 
-<!-- - Add root move search. After each depth, search the moves sorted by previous depth order. When timer expires, still use current value? This doesn't work it is slower -->
-<!-- - test fail soft v hard (No Diff?) -->
 - why does sorting the root take so much longer?
+- expand quiescence and use tt for it?, investigate cap at 5
 
-- when player is being mated, the quiescence evaluation of the position is inaccurate. The lack of evaluation of king safety allows a position that doesn't lead to mate to be disregarded against another position that does. The TT will be fine, If I can assume that queiescence search handles all non-quiet positions accurately, which we cant right now. Test with this fen
-        let fen = "6rk/pp3p1p/8/n2Pq3/8/P4QPP/4rK2/1R1R4 w - - 0 29";
-    There are 3 moves for white, only f2f1 prevents mate
-
-- Add killer moves
-- Add unit tests for search
-- improve evaluation and add tests
-- expand quiescence and use tt for it, investigate cap at 5
-- Static Exchange Evaluation (SEE) pruning for quiesence
-
-- work in king safety bonus
-- reduce wing pawn / pushing pawn bonus
-
-BEAT NORA BOT! Effective rating 2250
-
----------------------
-
-- Implement better move ordering
-- Killer Moves **2**
-- Move extensions when move results in check
-- Queiesence Search I think is in? How about tt
-- Optimal mate length, test for it
-
-- Won't take the damn rook in this position after rook g1 3k2r1/3np3/4Q1B1/3N4/1P1P1P2/4P2P/3B4/4K2R w K - 1 41
-- Refine aspiration based on position complexity?
-
-- Add Debugger to Search, print out each depth best move and best move sequence
 - Add search root function that remembers the best order of root moves as the search deepens, then uses
     the previous sort order eval
 
-## Evaluation Optimization
-
-- Compute all shared resources once, enemy pawns my pawns ..
-- Evaluate initiative
-- Improve position evaluation **1**
-- Encourage pawn promotion more ? Thought I was but sometimes no luck. Promotion very akward
-
 ## Gameplay Needs
 
-- Verify En Passant Computer works
-- add turn timer **1**
-- Check stalemate avoidance
-- Promoting to knights?? Pawn pushing instead of mate. Seems to be minimizing when mate occurs
-- DRAW AVOIDANCE WITH THIS POSITION
-    2r3k1/4n2p/Q3R1p1/8/3BB3/5P2/P1Pq1KPP/7R w - - 5 33
-    Also search test #3 is a move where we can either win or forced draw
-- Need half move count? Or something threefold repetition
-
-- In this position we sacrificed the rook instead of moving to f2. May be related to fastest mate.
-    5R2/8/p3k2P/2p5/8/P7/2P1K3/8 b - - 0 54
+- Need half move count? Or something threefold repetition maybe not accurate?
 
 ## Performance History
 
