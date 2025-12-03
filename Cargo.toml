@@ -59,3 +59,7 @@ path = "src/main.rs"
 name = "engine_pgo"
 path = "src/bin/engine_pbo.rs"
 
+[[bin]]
+name = "test_ops"
+path = "src/bin/test_ops.rs"
+

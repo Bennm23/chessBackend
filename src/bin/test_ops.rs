@@ -1,7 +1,5 @@
 use std::time::Instant;
 
-use rand::random_bool;
-
 #[allow(unused)]
 pub const TRAINING_FENS: [&str; 1000] = [
     "rnb1kbnr/pp1ppp2/6pp/q1p5/P1P5/6P1/1P1PPP1P/RNBQKBNR w - - 0 1",
@@ -1163,9 +1161,8 @@ pub const EARLY_COMMON_FENS: &[&str] = &[
 ];
 
 #[allow(unused)]
-pub fn test_suite() {
-    // const GAMES: usize = EARLY_BALANCED_FENS.len() + EARLY_COMMON_FENS.len();
-    const GAMES: usize = 10;
+pub fn main() {
+    const GAMES: usize = 30;
     println!("Playing {} games...", GAMES);
 
     let mut new_is_white: bool = true;
@@ -1181,22 +1178,14 @@ pub fn test_suite() {
     const SEARCH_TIME: Option<u128> = Some(500);
     const SEARCH_DEPTH: u8 = 255;
 
-    // let nnue =
-    //     nnue::nnue::load_big_nnue("/home/bmellin/chess/chessBackendWebFinal/nn-1c0000000000.nnue").unwrap();
 
     let mut nnue_eval = nnue::nnue::NnueEvaluator::new();
 
-    for game in 0..GAMES {
+    for game in 10..GAMES {
         let mut board = pleco::Board::default();
-        // new_is_white = random_bool(0.5);
         let mut board =
             pleco::Board::from_fen(EARLY_BALANCED_FENS[(game + 20) % EARLY_BALANCED_FENS.len()])
                 .expect("Fen parse failed");
-        // if game >= EARLY_BALANCED_FENS.len() {
-        //     board =
-        //         pleco::Board::from_fen(EARLY_COMMON_FENS[game % EARLY_COMMON_FENS.len()])
-        //             .expect("Fen parse failed");
-        // }
         let mut elapsed_ms: f64 = 0f64;
         let mut turn_count = 0;
 

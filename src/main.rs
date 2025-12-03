@@ -5,14 +5,14 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum ClientMessage {
-    GetBestMove { fen: String },
+    GetBestMove { fen: String, move_history: Vec<String> },
     GetBoardEval { fen: String },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum ServerMessage {
-    BestMove { best_move: String },
+    BestMove { best_move: String},
     BoardEval { score: f64 },
     Error { message: String },
 }
@@ -23,8 +23,7 @@ use axum::{
     Router,
 };
 use futures::StreamExt;
-use tokio::sync::RwLock;
-use std::{env, net::SocketAddr, sync::LazyLock};
+use std::{env, net::SocketAddr};
 use tower_http::cors::{Any, CorsLayer};
 
 
@@ -54,17 +53,56 @@ async fn backend() {
     axum::serve(listener, app).await.unwrap();
 }
 
-mod test_ops;
-#[tokio::main]
-async fn main() {
-    // test_ops::test_suite();
-    backend().await;
+fn main() {
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(4) // 4 worker threads
+        .thread_stack_size(3 * 1024 * 1024) // Set stack size to 3 MiB
+        .enable_all()
+        .build()
+        .unwrap();
+
+    rt.block_on(async {
+        println!("Tokio runtime with custom thread stack size is running!");
+        backend().await;
+    });
 }
 
-// Blundered mate 1k1rr3/pp3p1Q/5q2/P7/4n1B1/1P1p3P/3P1PP1/1R3K1R w - - 2 25
-// https://www.chess.com/analysis/game/computer/461571475/review?move=47&move=47&tab=review&classification=greatfind&autorun=true
 async fn ws_handler(ws: WebSocketUpgrade) -> impl IntoResponse {
     ws.on_upgrade(handle_socket)
+}
+
+fn check_fens(fen1: &str, fen2: &str) -> bool {
+    let fen1_split = fen1.split_whitespace().collect::<Vec<&str>>();
+    let fen2_split = fen2.split_whitespace().collect::<Vec<&str>>();
+    for i in 0 .. fen1_split.len() {
+        // Skip EP square, pleco only sets ep if it can be captured
+        if i == 3 {
+            continue;
+        }
+        if fen1_split[i] != fen2_split[i] {
+            return false;
+        }
+    }
+    true
+}
+
+fn try_book_move(board: &mut pleco::Board, fen: &str) -> Option<BitMove> {
+    let mut book_opt: Option<BitMove> = None;
+    if board.moves_played() <= 10 {
+        // Check book first
+        if let Some(book_move) = book::get_book_move(&BOOK, &fen) {
+            let applied = board.apply_uci_move(&book_move);
+            if applied {
+                book_opt = board.last_move();
+                if book_opt.is_none() {
+                    println!("Book move was not valid: {}", book_move);
+                }
+            } else {
+                println!("Failed to apply book move: {}", book_move);
+            }
+        }
+    }
+    book_opt
 }
 
 async fn handle_socket(mut socket: WebSocket) {
@@ -72,49 +110,40 @@ async fn handle_socket(mut socket: WebSocket) {
         if let Message::Text(text) = msg {
             // Parse message
             match serde_json::from_str::<ClientMessage>(&text) {
-                Ok(ClientMessage::GetBestMove { fen }) => {
-                    println!("Received FEN: {}", fen);
+                Ok(ClientMessage::GetBestMove { fen, move_history }) => {
 
-                    let mut board = match pleco::Board::from_fen(&fen) {
-                        Ok(b) => b,
-                        Err(e) => {
-                            let err = ServerMessage::Error {
-                                message: format!("Invalid FEN: {:?}", e),
-                            };
-                            let err_text = serde_json::to_string(&err).unwrap();
-                            if socket.send(Message::Text(err_text.into())).await.is_err() {
-                                break;
-                            }
-                            continue;
-                        }
-                    };
-                    
-                    let mut book_opt: Option<BitMove> = None;
-
-                    if board.moves_played() <= 10 {
-                        println!("Checking book for move...");
-                        // Check book first
-                        if let Some(book_move) = book::get_book_move(&BOOK, &fen) {
-                            println!("Book move found: {}", book_move);
-                            let applied = board.apply_uci_move(&book_move);
-                            if applied {
-                                book_opt = board.last_move();
-                                if book_opt.is_none() {
-                                    println!("Book move was not valid: {}", book_move);
-                                }
-                            } else {
-                                println!("Failed to apply book move: {}", book_move);
-                            }
-                        } else {
-                            println!("No book move found.");
+                    // Build board from move history to ensure repetitions are handled correctly
+                    let mut board = pleco::Board::start_pos();
+                    let mut moves_failed = false;
+                    for mv in &move_history {
+                        let applied = board.apply_uci_move(mv);
+                        if !applied {
+                            moves_failed = true;
+                            println!("Failed to apply move from history: {}", mv);
+                            break;
                         }
                     }
+
+                    if !check_fens(&board.fen(), &fen) || moves_failed {
+                        eprintln!("Received FEN: {}", fen);
+                        eprintln!("Board after applying move history: {}", board.fen());
+                        let err = ServerMessage::Error {
+                            message: format!("FEN and Move History do not match"),
+                        };
+                        let err_text = serde_json::to_string(&err).unwrap();
+                        if socket.send(Message::Text(err_text.into())).await.is_err() {
+                            break;
+                        }
+                        continue;
+                    }
+                    
+                    let book_opt: Option<BitMove> = try_book_move(&mut board, &fen);
+
                     let mv = match book_opt {
                         Some(bm) => bm,
                         None => engine::search_test::start_search(&mut board),
                     };
 
-                    // Dummy best move logic
                     let best_move = ServerMessage::BestMove {
                         best_move: mv.to_string(),
                     };
