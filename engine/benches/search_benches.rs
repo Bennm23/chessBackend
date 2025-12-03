@@ -3,7 +3,7 @@ use std::{sync::LazyLock, time::Duration};
 use criterion::{BatchSize, Bencher, Criterion, black_box, criterion_group};
 use engine::{
     debug::{NoTrace, Tracing},
-    search_test::MySearcher,
+    search_wip::MySearcher,
 };
 use pleco::Board;
 

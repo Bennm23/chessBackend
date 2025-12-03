@@ -2,7 +2,7 @@
 
 use std::time::Instant;
 
-use engine::{debug::{NoTrace, Tracing}, final_search::MySearcher};
+use engine::{debug::{NoTrace, Tracing}, search::MySearcher};
 use pleco::{BitMove, Board};
 
 /// PGO depths — tuned for "realistic but not insane" workloads.

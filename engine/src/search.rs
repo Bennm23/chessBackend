@@ -1,6 +1,5 @@
 use std::time::{Duration, Instant};
 
-use nnue::nnue::NnueEvaluator;
 use pleco::{
     BitMove, Board, PieceType, Player, ScoringMove,
     core::{
@@ -17,7 +16,7 @@ use pleco::{
 use crate::{
     consts::MVV_LVA,
     debug::NoTrace,
-    evaluation::{eval_board_ai, trace_eval},
+    evaluation::{eval_board, trace_eval},
 };
 
 use super::{
@@ -27,13 +26,6 @@ use super::{
 };
 
 const MATE_V: MyVal = MATE as MyVal;
-const VALUE_MATE_IN_MAX_PLY: MyVal = MATE_V - MAX_PLY as MyVal;
-const VALUE_MATED_IN_MAX_PLY: MyVal = -VALUE_MATE_IN_MAX_PLY;
-
-const VALUE_TB: EvalVal = VALUE_MATE_IN_MAX_PLY as EvalVal - 1;
-const VALUE_TB_WIN_IN_MAX_PLY: EvalVal = VALUE_TB - MAX_PLY as EvalVal;
-const VALUE_TB_LOSS_IN_MAX_PLY: EvalVal = -VALUE_TB_WIN_IN_MAX_PLY;
-
 const DRAW_V: MyVal = DRAW as MyVal;
 const NEG_INF_V: MyVal = NEG_INFINITE as MyVal;
 const INF_V: MyVal = INFINITE as MyVal;
@@ -59,8 +51,7 @@ const FUTILITY_MAX_DEPTH: i8 = 2; // only at depth 1..2
 const FUTILITY_BASE_MARGIN: MyVal = 100; // ~1 pawn per depth unit
 
 // Searcher with TT, history, killers.
-pub struct MySearcher<'a, T: Tracing<SearchDebugger>> {
-    nnue_eval: &'a mut NnueEvaluator,
+pub struct MySearcher<T: Tracing<SearchDebugger>> {
     pawn_table: PawnTable,
     material: Material,
     start_time: Instant,
@@ -87,27 +78,24 @@ pub struct MySearcher<'a, T: Tracing<SearchDebugger>> {
 pub const NULL_SCORE: ScoringMove = ScoringMove::null();
 
 // Public API (unchanged)
-pub fn search_to_depth_and_time(nnue_eval: &mut NnueEvaluator, board: &mut Board, ply: u8, time: Option<u128>) -> BitMove {
-    let mut searcher = MySearcher::new(nnue_eval, NoTrace::new(), time);
+pub fn search_to_depth_and_time(board: &mut Board, ply: u8, time: Option<u128>) -> BitMove {
+    let mut searcher = MySearcher::new(NoTrace::new(), time);
     searcher.find_best_move(board, ply)
 }
 
 pub fn start_search(board: &mut Board) -> BitMove {
-    let mut nnue_eval = NnueEvaluator::new();
-    let mut searcher = MySearcher::new(&mut nnue_eval, Trace::new(), Some(1000));
+    let mut searcher = MySearcher::new(Trace::new(), Some(1000));
     searcher.find_best_move(board, MAX_PLY as u8)
 }
 
 pub fn eval_search(board: &mut Board) -> f64 {
-    let mut nnue_eval = NnueEvaluator::new();
-    let mut searcher = MySearcher::new(&mut nnue_eval, NoTrace::new(), Some(1000));
+    let mut searcher = MySearcher::new(NoTrace::new(), Some(1000));
     searcher.search_eval(board, MAX_PLY as u8)
 }
 
-impl<'a, T: Tracing<SearchDebugger>> MySearcher<'a, T> {
-    pub fn new(nnue_eval: &'a mut NnueEvaluator, tracer: T, time_limit: Option<u128>) -> Self {
+impl<T: Tracing<SearchDebugger>> MySearcher<T> {
+    pub fn new(tracer: T, time_limit: Option<u128>) -> Self {
         Self {
-            nnue_eval,
             pawn_table: PawnTable::new(),
             material: Material::new(),
             start_time: Instant::now(),
@@ -125,9 +113,8 @@ impl<'a, T: Tracing<SearchDebugger>> MySearcher<'a, T> {
         }
     }
 
-    pub fn trace(nnue_eval: &'a mut NnueEvaluator, tracer: T) -> Self {
+    pub fn trace(tracer: T) -> Self {
         Self {
-            nnue_eval,
             pawn_table: PawnTable::new(),
             material: Material::new(),
             start_time: Instant::now(),
@@ -147,20 +134,14 @@ impl<'a, T: Tracing<SearchDebugger>> MySearcher<'a, T> {
 
     // #[inline(always)]
     pub fn eval(&mut self, board: &Board) -> MyVal {
-        let eval = self.nnue_eval.evaluate(board);
-        let scaled = eval.scaled_total();
-        let pawn_count = board.count_piece(Player::Black, PieceType::P) + board.count_piece(Player::White, PieceType::P);
-        let pawn_score = 535 * pawn_count as i32;
+        let pawns = &mut self.pawn_table;
+        let material = &mut self.material;
+        let res = eval_board(board, pawns, material);
 
-        let material = pawn_score + board.count_all_pieces() as i32 - pawn_count as i32;
-
-        // Stocksish idk
-        let mut v = (scaled * (77777 + material)) / 77777;
-        v -= v * board.rule_50() as i32 / 212;
-
-        v = v.clamp(VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
-
-        v as MyVal
+        if res > MyVal::MAX as EvalVal || res < MyVal::MIN as EvalVal {
+            println!("ERROR: eval overflow for i16");
+        }
+        res as MyVal
     }
 
     #[inline(always)]
@@ -197,9 +178,6 @@ impl<'a, T: Tracing<SearchDebugger>> MySearcher<'a, T> {
         self.history = [[[0; NUM_SQUARES]; NUM_SQUARES]; 2];
         self.tt.new_search();
         self.last_root_move = NULL_BIT_MOVE;
-
-        self.nnue_eval.reset(board);
-
 
         let mut alpha: MyVal;
         let mut beta: MyVal;
@@ -528,7 +506,6 @@ impl<'a, T: Tracing<SearchDebugger>> MySearcher<'a, T> {
 
             self.tt.prefetch(board.key_after(mv));
 
-            self.nnue_eval.do_move(&board, mv);
             board.apply_move(mv);
 
             // Mild LMR on quiet, non-check, non-first moves.
@@ -610,7 +587,6 @@ impl<'a, T: Tracing<SearchDebugger>> MySearcher<'a, T> {
                 }
             }
 
-            self.nnue_eval.undo_move();
             board.undo_move();
             legal_moves += 1;
 
@@ -774,12 +750,10 @@ impl<'a, T: Tracing<SearchDebugger>> MySearcher<'a, T> {
 
             self.tt.prefetch(board.key_after(mv));
 
-            self.nnue_eval.do_move(&board, mv);
             board.apply_move(mv);
             let score =
                 -self.quiescence_search(board, -beta, -alpha, ply + 1, next_depth);
             board.undo_move();
-            self.nnue_eval.undo_move();
 
             if score >= beta {
                 return score;
@@ -984,7 +958,7 @@ fn get_capture_score(board: &Board, mv: &BitMove) -> MyVal {
 mod tests {
     use pleco::{BitMove, Board};
 
-    use crate::{debug::Trace, debug::Tracing, final_search::MySearcher};   
+    use crate::{debug::Trace, debug::Tracing, search::MySearcher};   
     fn ev_depth(fen: &str, depth: u8) -> BitMove {
         let mut board = Board::from_fen(fen).unwrap();
         let mut searcher = MySearcher::trace(Trace::new());

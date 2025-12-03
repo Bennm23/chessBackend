@@ -1208,10 +1208,10 @@ pub fn main() {
             turn_count += 1;
             let mv = if (white_to_move && new_is_white) || (!white_to_move && !new_is_white) {
                 // New engine to move
-                engine::search_test::search_to_depth_and_time(&mut nnue_eval, &mut board, SEARCH_DEPTH, SEARCH_TIME)
+                engine::search_wip::search_to_depth_and_time(&mut nnue_eval, &mut board, SEARCH_DEPTH, SEARCH_TIME)
             } else {
                 // Old engine to move
-                engine::final_search::search_to_depth_and_time(&mut board, SEARCH_DEPTH, SEARCH_TIME)
+                engine::search::search_to_depth_and_time(&mut board, SEARCH_DEPTH, SEARCH_TIME)
             };
             elapsed_ms += start.elapsed().as_millis() as f64;
             if mv.is_null() {
