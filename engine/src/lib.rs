@@ -1,4 +1,3 @@
-pub mod searching;
 pub mod final_search;
 pub mod search_test;
 pub mod consts;
@@ -13,7 +12,6 @@ pub mod prelude {
     pub use super::tables;
     pub use super::debug;
     pub use super::consts;
-    pub use super::searching;
 }
 
 #[allow(unused)]

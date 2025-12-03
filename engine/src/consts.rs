@@ -1,58 +1,12 @@
 use lazy_static::lazy_static;
 use pleco::core::{masks::{FILE_CNT, PLAYER_CNT, RANK_CNT, SQ_CNT}, score::Score};
 
-
-// pub const DEFAULT_TT_SIZE: usize = 256;
-// pub const PAWN_TABLE_SIZE: usize = 16384;
-// pub const MATERIAL_TABLE_SIZE: usize = 8192;
-
-// const TT_ALLOC_SIZE: usize = mem::size_of::<TranspositionTable>();
-// const TIMER_ALLOC_SIZE: usize = mem::size_of::<TimeManager>();
-
-// // A object that is the same size as a transposition table
-// type DummyTranspositionTable = [u8; TT_ALLOC_SIZE];
-// type DummyTimeManager = [u8; TIMER_ALLOC_SIZE];
-
-// pub static USE_STDOUT: AtomicBool = AtomicBool::new(true);
-
-// static INITIALIZED: Once = Once::new();
-
-// /// Global Transposition Table
-// static mut TT_TABLE: DummyTranspositionTable = [0; TT_ALLOC_SIZE];
-
-// // Global Timer
-// static mut TIMER: DummyTimeManager = [0; TIMER_ALLOC_SIZE];
-
-// #[cold]
-// pub fn init_globals() {
-//     INITIALIZED.call_once(|| {
-//         prelude::init_statics(); // Initialize static tables
-//         compiler_fence(Ordering::SeqCst);
-//         init_tt(); // Transposition Table
-//         init_timer(); // Global timer manager
-//         pawn_table::init();
-//         threadpool::init_threadpool(); // Make Threadpool
-//         search::init();
-//     });
-// }
-
-// // Initializes the transposition table
-// #[cold]
-// fn init_tt() {
-//     unsafe {
-//         let tt = &mut TT_TABLE as *mut DummyTranspositionTable as *mut TranspositionTable;
-//         ptr::write(tt, TranspositionTable::new(DEFAULT_TT_SIZE));
-//     }
-// }
-
 pub type MyVal = i16;
-
 
 //GAME EVALUATION CONSTANTS
 pub const MATE: MyVal = -25_000;
 pub const CHECK: MyVal = 14;
 pub const STALEMATE: MyVal = 0;
-
 
 //EVALUATION PATTERN CONSTANTS
 

@@ -1,32 +1,15 @@
-use basic_eval::BasicEvaluator;
 use pleco::{Board, Player};
 
-use super::{consts::EvalVal, debug::{NoTrace, Trace, Tracing}, tables::{material::Material, pawn_table::PawnTable}};
+use super::{
+    consts::EvalVal,
+    debug::{NoTrace, Trace, Tracing},
+    tables::{material::Material, pawn_table::PawnTable},
+};
 
-mod basic_eval;
 mod ai_eval;
 
-
 pub fn eval_board(board: &Board, pawn_table: &mut PawnTable, material: &mut Material) -> EvalVal {
-    let mut evaluator =  BasicEvaluator::new(
-        board, NoTrace::new(),
-        pawn_table,
-        material,
-    );
-    let res = evaluator.white_score();
-    if board.turn() == Player::Black {
-        return -res
-    }
-    res
-}
-
-pub fn eval_board_ai(board: &Board, pawn_table: &mut PawnTable, material: &mut Material) -> EvalVal {
-    let mut evaluator = ai_eval::BasicEvaluator::new(
-        board,
-        NoTrace::new(),
-        pawn_table,
-        material,
-    );
+    let mut evaluator = ai_eval::BasicEvaluator::new(board, NoTrace::new(), pawn_table, material);
     let mut res = evaluator.white_score(); // white POV
 
     // Convert to side-to-move POV.
@@ -43,42 +26,15 @@ pub fn eval_board_ai(board: &Board, pawn_table: &mut PawnTable, material: &mut M
     }
 }
 
-
 pub fn trace_eval(board: &Board) -> EvalVal {
-
     let mut pawn_table = PawnTable::new();
     let mut material = Material::new();
 
-    let mut evaluator =  BasicEvaluator::new(
-        board,
-        Trace::new(),
-        &mut pawn_table,
-        &mut material
-    );
+    let mut evaluator = ai_eval::BasicEvaluator::new(board, Trace::new(), &mut pawn_table, &mut material);
     let res = evaluator.white_score();
 
     if board.turn() == Player::Black {
-        return -res
+        return -res;
     }
     res
-}
-
-
-#[cfg(test)]
-mod tests {
-    use pleco::Board;
-
-    use super::trace_eval;
-
-
-    #[test]
-    fn test_eval() {
-        // let fen = "8/1R6/8/P7/1R1k4/P7/1KP2p2/6r1 b - - 5 43";
-        let fen = "rq2kb1r/pppb1ppp/3ppn2/8/4PP2/2P5/PP1P2PP/RNB1KBNR b KQkq - 0 1";
-
-        let board = Board::from_fen(fen).unwrap();
-
-        let res = trace_eval(&board);
-        println!("Returned Eval = {res}");
-    }
 }

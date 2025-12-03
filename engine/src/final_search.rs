@@ -16,7 +16,7 @@ use pleco::{
 use crate::{
     consts::MVV_LVA,
     debug::NoTrace,
-    evaluation::{eval_board_ai, trace_eval},
+    evaluation::{eval_board, trace_eval},
 };
 
 use super::{
@@ -136,7 +136,7 @@ impl<T: Tracing<SearchDebugger>> MySearcher<T> {
     pub fn eval(&mut self, board: &Board) -> MyVal {
         let pawns = &mut self.pawn_table;
         let material = &mut self.material;
-        let res = eval_board_ai(board, pawns, material);
+        let res = eval_board(board, pawns, material);
 
         if res > MyVal::MAX as EvalVal || res < MyVal::MIN as EvalVal {
             println!("ERROR: eval overflow for i16");
