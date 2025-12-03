@@ -141,7 +141,7 @@ async fn handle_socket(mut socket: WebSocket) {
 
                     let mv = match book_opt {
                         Some(bm) => bm,
-                        None => engine::search_wip::start_search(&mut board),
+                        None => engine::search::start_search(&mut board),
                     };
 
                     let best_move = ServerMessage::BestMove {
@@ -156,7 +156,7 @@ async fn handle_socket(mut socket: WebSocket) {
                 Ok(ClientMessage::GetBoardEval { fen }) => {
                     println!("Received FEN for eval: {}", fen);
                     let mut board = pleco::Board::from_fen(&fen).expect("Board Fen Create Failed");
-                    let score = engine::search_wip::eval_search(&mut board);
+                    let score = engine::search::eval_search(&mut board);
                     let eval = ServerMessage::BoardEval { score };
 
                     if socket.send(Message::Text(serde_json::to_string(&eval).unwrap().into())).await.is_err() {

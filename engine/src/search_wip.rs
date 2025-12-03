@@ -202,7 +202,6 @@ impl<'a, T: Tracing<SearchDebugger>> MySearcher<'a, T> {
         let mut best_move: ScoringMove = ScoringMove::blank(0);
         let mut score: MyVal = 0;
         let mut reached_depth: u8 = 1;
-        let mut aspiration_cntr: u8 = 0;
 
         'iterative: for depth in 1..=max_ply {
             if self.time_up() {
@@ -210,7 +209,7 @@ impl<'a, T: Tracing<SearchDebugger>> MySearcher<'a, T> {
             }
 
             let use_aspiration = depth >= 3;
-            let mut window: MyVal = 40; // ~0.40 pawns
+            let mut window: MyVal = 30; // ~0.30 pawns
 
             if use_aspiration {
                 alpha = (score - window).max(NEG_INF_V);
@@ -268,8 +267,6 @@ impl<'a, T: Tracing<SearchDebugger>> MySearcher<'a, T> {
                         window = window.saturating_mul(2).saturating_add(10);
                         alpha = (score - window).max(NEG_INF_V);
                     }
-                    println!("Aspiration Failed Low at depth {depth}, new window [{}, {}]", alpha, beta);
-                    aspiration_cntr += 1;
                     continue 'aspiration;
                 }
 
@@ -283,8 +280,6 @@ impl<'a, T: Tracing<SearchDebugger>> MySearcher<'a, T> {
                         window = window.saturating_mul(2).saturating_add(10);
                         beta = (score + window).min(INF_V);
                     }
-                    println!("Aspiration Failed High at depth {depth}, new window [{}, {}]", alpha, beta);
-                    aspiration_cntr += 1;
                     continue 'aspiration;
                 }
 
@@ -312,14 +307,14 @@ impl<'a, T: Tracing<SearchDebugger>> MySearcher<'a, T> {
                 self.nodes_explored = 0;
             }
         }
+
         if let Some(dbg) = self.tracer.trace() {
             dbg.add_duration(self.start_time.elapsed());
             println!("{dbg}");
-            let trace = self.nnue_eval.trace_eval(board);
-            trace.print(board);
-            println!("AB Eval = {}", best_move.score);
-            println!("Window Attempts = {}", aspiration_cntr);
+            println!("TT Percent = {}", self.tt.hash_percent());
             println!("Reached Depth = {reached_depth}");
+            println!("AB Eval = {}", best_move.score);
+            self.nnue_eval.trace_eval(board);
             if best_move.score >= MATE_V - max_ply as MyVal {
                 println!("Mate Found At Depth = {reached_depth}");
             }
