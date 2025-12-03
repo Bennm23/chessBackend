@@ -1,11 +1,7 @@
-#[build]
-#rustflags = [
-#    "-Ctarget-cpu=native"
-#]
 [build]
 rustflags = [
-    "-C", "target-feature=+avx2,+ssse3",
-    "-C", "link-args=-zstack-size=10000000"
+    "-Ctarget-cpu=native",
+    "-C", "link-args=-zstack-size=30000000"
 ]
 
 [profile.release]
