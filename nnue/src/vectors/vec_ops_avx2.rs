@@ -1,6 +1,6 @@
 use std::arch::x86_64::{__m256i, _mm_add_epi32, _mm_cvtsi128_si32, _mm_shuffle_epi32, _mm256_castsi256_si128, _mm256_extracti128_si256};
 
-use crate::constants::{PSQT_BUCKETS, PsqtWeightType, TRANSFORMED_FEATURE_DIM_BIG, TRANSFORMED_FEATURE_DIM_SMALL, WeightType};
+use crate::constants::{PSQT_BUCKETS, PsqtWeightType};
 
 /// Packed 256-bit lane used for the main NNUE accumulator math (identical to Stockfish's `vec_t`).
 pub type VecT = __m256i;

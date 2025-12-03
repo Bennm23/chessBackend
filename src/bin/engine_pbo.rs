@@ -245,21 +245,6 @@ fn main() {
     eprintln!("PGO training run starting…");
 
     let start = Instant::now();
-    for fen in FENS_OPENING {
-        let b = Board::from_fen(fen).expect("Invalid FEN in PGO set");
-    }
-    for fen in FENS_MIDGAME {
-        let b = Board::from_fen(fen).expect("Invalid FEN in PGO set");
-    }
-    for fen in FENS_ENDGAME {
-        let b = Board::from_fen(fen).expect("Invalid FEN in PGO set");
-    }
-    for fen in FENS_TACTICAL {
-        let b = Board::from_fen(fen).expect("Invalid FEN in PGO set");
-    }
-    // for fen in EARLY_BALANCED_FENS {
-    //     let b = Board::from_fen(fen).expect("Invalid FEN in PGO set");
-    // }
 
     run_position_training();
 

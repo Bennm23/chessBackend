@@ -1,5 +1,4 @@
 use book::Book;
-use chess::Rank;
 use pleco::SQ;
 use crate::utils;
 use std::{io, ops::ControlFlow};

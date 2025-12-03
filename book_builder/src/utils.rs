@@ -6,8 +6,7 @@ pub fn file_to_lines(file_path: &str) -> Vec<String> {
     if let Err(e) = file {
         panic!("Cannot open file {}: {:?}", file_path, e);
     }
-    let file = file.unwrap();
-    // let file = File::open(file_path).expect("Cannot open file");
+    let file = file.expect("Failed to convert file to lines");
     let reader = BufReader::new(file);
 
     reader.lines()
@@ -21,7 +20,7 @@ pub fn san_to_uci(san: &str, fen: &str) -> Option<String> {
     // println!("Converting SAN '{}' on FEN '{}'", san, fen);
     let san_board = match chess::Board::from_str(fen) {
         Ok(board) => board,
-        Err(e) => {
+        Err(_) => {
             // println!("Failed to parse FEN: {} due to {}", fen, e);
             return None;
         }
@@ -33,12 +32,10 @@ pub fn san_to_uci(san: &str, fen: &str) -> Option<String> {
             // println!("Converted SAN '{}' to UCI '{}'", san, mv.to_string());
             Some(mv.to_string())
         }
-        Err(e) => {
-            // println!("Failed to convert SAN due to {}", e);
+        Err(_) => {
             None
         },
     }
-    // Some(san_move.to_string())
 }
 
 #[cfg(test)]

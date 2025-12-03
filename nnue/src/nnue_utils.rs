@@ -6,8 +6,6 @@ use std::{
 
 use pleco::{Board, PieceType, Player};
 
-use crate::{constants::WeightType, vectors::VecT};
-
 #[repr(align(64))]
 pub struct CacheAligned<T>(pub T);
 

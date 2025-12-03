@@ -12,10 +12,10 @@ type SqClippedReLU = sq_clipped_relu::SqClippedReLU<
 {crate::constants::L2 + 1}, {ceil_to_multiple(crate::constants::L2 + 1, 32)}
 >;
 
-type ClippedReLU_0 = clipped_relu::ClippedReLU<
+type ClippedReLU0 = clipped_relu::ClippedReLU<
 {crate::constants::L2 + 1}, {ceil_to_multiple(crate::constants::L2 + 1, 32)}
 >;
-type ClippedReLU_1 = clipped_relu::ClippedReLU<
+type ClippedReLU1 = clipped_relu::ClippedReLU<
 {crate::constants::L3}, {ceil_to_multiple(crate::constants::L3, 32)}
 >;
 
@@ -38,9 +38,9 @@ pub struct BucketNet
 {
     fc0: affine_sparse::AffineTransformSparse,
     ac_sqr_0: SqClippedReLU,
-    ac_0: ClippedReLU_0,
+    ac_0: ClippedReLU0,
     fc1: affine::AffineTransform,
-    ac1: ClippedReLU_1,
+    ac1: ClippedReLU1,
     fc2: affine::AffineTransform,
 }
 
