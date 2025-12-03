@@ -1,6 +1,5 @@
 extern crate pleco;
 
-mod basic_bots;
 mod board_build;
 mod board_hash;
 mod board_move_apply;

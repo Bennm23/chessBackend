@@ -96,11 +96,5 @@ pub use helper::Helper;
 pub mod bot_prelude {
     //! Easy importing of all available bots.
     pub use bots::AlphaBetaSearcher;
-    pub use bots::IterativeSearcher;
-    pub use bots::JamboreeSearcher;
-    pub use bots::MiniMaxSearcher;
-    pub use bots::ParallelMiniMaxSearcher;
-    pub use bots::RandomBot;
-
     pub use tools::Searcher;
 }

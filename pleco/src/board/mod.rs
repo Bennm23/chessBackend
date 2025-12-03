@@ -1003,7 +1003,7 @@ impl Board {
 
         let mut zob: u64 = self.state.zobrist ^ z_side();
 
-        self.depth += 1;
+        // self.depth += 1;
         // New Arc for the board to have by making a partial clone of the current state
         let mut next_arc_state = UniqueArc::new(self.state.partial_clone());
 
@@ -1062,6 +1062,7 @@ impl Board {
     pub unsafe fn undo_null_move(&mut self) {
         assert!(self.state.prev_move.is_null());
         self.turn = self.turn.other_player();
+        // self.depth -= 1;
         self.state = self.state.get_prev().unwrap();
     }
 
