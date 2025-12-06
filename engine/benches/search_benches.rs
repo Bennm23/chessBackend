@@ -31,8 +31,7 @@ fn bench_search_kiwipete(b: &mut Bencher, depth: u8) {
 }
 fn run_search(board: &mut Board, depth: u8) -> pleco::BitMove {
     let mut guard = NNUE_EVAL.lock().unwrap();
-    let mut searcher = MySearcher::new(&mut *guard, NoTrace::new(), None);
-    // let mut searcher = MySearcher::new(NoTrace::new(), None);
+    let mut searcher = MySearcher::new(&mut *guard, NoTrace::new(), Some(3000));
     black_box(searcher.find_best_move(board, depth))
 }
 fn bench_search_default(b: &mut Bencher, depth: u8) {

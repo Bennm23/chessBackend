@@ -473,9 +473,9 @@ fn update_accumulator_incremental<const DIM: usize>(
                 0
             );
 
-            let offset_a0 = DIM * added[0];;
+            let offset_a0 = DIM * added[0];
             let column_a0: *const VecT = to_const_vec_ptr(&ft.weights, offset_a0);
-            let offset_r0 = DIM * removed[0];;
+            let offset_r0 = DIM * removed[0];
             let column_r0: *const VecT = to_const_vec_ptr(&ft.weights, offset_r0);
 
             if (direction == Direction::Forward && removed.len() == 1) ||

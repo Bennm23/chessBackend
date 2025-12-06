@@ -1,3 +1,4 @@
+use std::env;
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::{self, BufReader, Read};
@@ -15,7 +16,7 @@ use crate::nnue_misc::{DirtyPiece, EvalTrace};
 use crate::nnue_utils::*;
 
 static NNUE_BIG: LazyLock<Nnue> = LazyLock::new(|| {
-    load_big_nnue("/home/bmellin/chess/chessBackendWebFinal/nn-1c0000000000.nnue")
+    load_big_nnue(&env::var("BIG_NNUE").unwrap_or("/home/deploy/nn-1c0000000000.nnue".to_string()))
         .expect("Failed to load NNUE")
 });
 
@@ -132,6 +133,7 @@ impl EvalResult {
         )
     }
 
+    #[inline(always)]
     pub fn scaled_total(&self) -> i32 {
         (125 * self.psqt + 131 * self.positional) / 128
     }

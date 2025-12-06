@@ -268,7 +268,6 @@ impl<'a, T: Tracing<SearchDebugger>> MySearcher<'a, T> {
                         window = window.saturating_mul(2).saturating_add(10);
                         alpha = (score - window).max(NEG_INF_V);
                     }
-                    println!("Aspiration Failed Low at depth {depth}, new window [{}, {}]", alpha, beta);
                     aspiration_cntr += 1;
                     continue 'aspiration;
                 }
@@ -283,7 +282,6 @@ impl<'a, T: Tracing<SearchDebugger>> MySearcher<'a, T> {
                         window = window.saturating_mul(2).saturating_add(10);
                         beta = (score + window).min(INF_V);
                     }
-                    println!("Aspiration Failed High at depth {depth}, new window [{}, {}]", alpha, beta);
                     aspiration_cntr += 1;
                     continue 'aspiration;
                 }

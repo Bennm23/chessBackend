@@ -56,10 +56,6 @@ name = "chess_engine"
 path = "src/main.rs"
 
 [[bin]]
-name = "engine_pgo"
-path = "src/bin/engine_pbo.rs"
-
-[[bin]]
 name = "test_ops"
 path = "src/bin/test_ops.rs"
 
